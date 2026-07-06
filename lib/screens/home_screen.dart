@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/group_model.dart';
-import '../services/auth_service.dart';
 import '../services/expense_service.dart';
 import '../services/group_service.dart';
 
@@ -48,55 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        elevation: 0,
-        toolbarHeight: 80,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(
-                  AppDimensions.cardRadius,
-                ),
-              ),
-              child: const Icon(
-                Icons.account_balance_wallet,
-                color: AppColors.textLight,
-                size: 32,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'ArgEnPo',
-                  style: AppTextStyles.appBarTitle,
-                ),
-                Text(
-                  'Argent Entre Potes',
-                  style: AppTextStyles.appBarSubtitle,
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.logout,
-              color: AppColors.textLight,
-            ),
-            onPressed: () async {
-              await AuthService().signOut();
-            },
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textLight,

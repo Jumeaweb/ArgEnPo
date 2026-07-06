@@ -1,33 +1,67 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../models/group_model.dart';
 
 class GroupService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final String _collection = 'groups';
+  String? get _currentUserId => _auth.currentUser?.uid;
 
-  Future<String> createGroup(GroupModel group) async {
-    final doc = await _firestore
-        .collection(_collection)
-        .add(group.toMap());
+  Future<void> createGroup({
+    required String name,
+  }) async {
+    final userId = _currentUserId;
 
-    return doc.id;
+    if (userId == null) {
+      throw Exception('Utilisateur non connecté');
+    }
+
+    final group = GroupModel(
+      id: '',
+      name: name.trim(),
+      createdBy: userId,
+      members: [userId],
+      createdAt: DateTime.now(),
+    );
+
+    await _firestore.collection('groups').add(group.toMap());
   }
 
-  Future<List<GroupModel>> getUserGroups(String uid) async {
-    final snapshot = await _firestore
-        .collection(_collection)
-        .where('members', arrayContains: uid)
+  Future<List<GroupModel>> getUserGroups(String userId) async {
+    final byMemberSnapshot = await _firestore
+        .collection('groups')
+        .where('members', arrayContains: userId)
         .get();
 
-    return snapshot.docs
-        .map((doc) => GroupModel.fromMap(doc.data(), doc.id))
-        .toList();
+    final byCreatorSnapshot = await _firestore
+        .collection('groups')
+        .where('createdBy', isEqualTo: userId)
+        .get();
+
+    final Map<String, GroupModel> groupsById = {};
+
+    for (final doc in byMemberSnapshot.docs) {
+      groupsById[doc.id] = GroupModel.fromMap(doc.data(), doc.id);
+    }
+
+    for (final doc in byCreatorSnapshot.docs) {
+      groupsById[doc.id] = GroupModel.fromMap(doc.data(), doc.id);
+    }
+
+    final groups = groupsById.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return groups;
   }
 
-  Future<void> addMember(String groupId, String uid) async {
-    await _firestore.collection(_collection).doc(groupId).update({
-      'members': FieldValue.arrayUnion([uid]),
+  Future<void> updateGroupName(
+    String groupId,
+    String newName,
+  ) async {
+    await _firestore.collection('groups').doc(groupId).update({
+      'name': newName.trim(),
     });
   }
 
@@ -35,38 +69,50 @@ class GroupService {
     String groupId,
     String email,
   ) async {
-    final userQuery = await _firestore
+    final normalizedEmail = email.trim().toLowerCase();
+
+    final userSnapshot = await _firestore
         .collection('users')
-        .where('email', isEqualTo: email.trim())
+        .where('email', isEqualTo: normalizedEmail)
         .limit(1)
         .get();
 
-    if (userQuery.docs.isEmpty) {
+    if (userSnapshot.docs.isEmpty) {
       return false;
     }
 
-    final uid = userQuery.docs.first.id;
+    final userId = userSnapshot.docs.first.id;
 
-    await _firestore.collection(_collection).doc(groupId).update({
-      'members': FieldValue.arrayUnion([uid]),
+    await _firestore.collection('groups').doc(groupId).update({
+      'members': FieldValue.arrayUnion([userId]),
     });
 
     return true;
   }
 
-  Future<void> updateGroupName(
-    String groupId,
-    String newName,
-  ) async {
-    await _firestore.collection(_collection).doc(groupId).update({
-      'name': newName,
-    });
+  Future<void> deleteGroup(String groupId) async {
+    await _deleteSubcollection(groupId, 'expenses');
+    await _deleteSubcollection(groupId, 'repayments');
+
+    await _firestore.collection('groups').doc(groupId).delete();
   }
 
-  Future<void> deleteGroup(String groupId) async {
-    await _firestore
-        .collection(_collection)
+  Future<void> _deleteSubcollection(
+    String groupId,
+    String subcollectionName,
+  ) async {
+    final snapshot = await _firestore
+        .collection('groups')
         .doc(groupId)
-        .delete();
+        .collection(subcollectionName)
+        .get();
+
+    final batch = _firestore.batch();
+
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
   }
 }

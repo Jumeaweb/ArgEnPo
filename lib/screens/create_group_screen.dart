@@ -40,7 +40,9 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       createdAt: DateTime.now(),
     );
 
-    await _groupService.createGroup(group);
+    await _groupService.createGroup(
+      name: group.name,
+    );
 
     if (mounted) {
       Navigator.pop(context);
