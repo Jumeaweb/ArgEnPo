@@ -159,7 +159,7 @@ class _GroupScreenState extends State<GroupScreen> {
 
     if (email == null || email.trim().isEmpty) return;
 
-    final success = await GroupService().addMemberByEmail(
+    final result = await GroupService().addMemberByEmail(
       widget.groupId,
       email.trim(),
     );
@@ -169,7 +169,11 @@ class _GroupScreenState extends State<GroupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          success ? 'Membre ajouté' : 'Utilisateur introuvable',
+          switch (result) {
+            AddMemberResult.added => 'Membre ajouté',
+            AddMemberResult.notFound => 'Utilisateur introuvable',
+            AddMemberResult.alreadyMember => 'Cette personne est déjà membre du groupe',
+          },
         ),
       ),
     );

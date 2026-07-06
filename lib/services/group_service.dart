@@ -3,6 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/group_model.dart';
 
+enum AddMemberResult {
+  added,
+  notFound,
+  alreadyMember,
+}
+
 class GroupService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -65,7 +71,7 @@ class GroupService {
     });
   }
 
-  Future<bool> addMemberByEmail(
+  Future<AddMemberResult> addMemberByEmail(
     String groupId,
     String email,
   ) async {
@@ -78,16 +84,27 @@ class GroupService {
         .get();
 
     if (userSnapshot.docs.isEmpty) {
-      return false;
+      return AddMemberResult.notFound;
     }
 
     final userId = userSnapshot.docs.first.id;
+
+    final groupDoc =
+        await _firestore.collection('groups').doc(groupId).get();
+
+    final members = List<String>.from(
+      groupDoc.data()?['members'] ?? [],
+    );
+
+    if (members.contains(userId)) {
+      return AddMemberResult.alreadyMember;
+    }
 
     await _firestore.collection('groups').doc(groupId).update({
       'members': FieldValue.arrayUnion([userId]),
     });
 
-    return true;
+    return AddMemberResult.added;
   }
 
   Future<void> deleteGroup(String groupId) async {
