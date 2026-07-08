@@ -92,6 +92,10 @@ class _GroupScreenState extends State<GroupScreen> {
             child: const Text('Annuler'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.textLight,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Supprimer'),
           ),
@@ -279,7 +283,7 @@ class _GroupScreenState extends State<GroupScreen> {
                 0,
                 (sum, r) => sum + r.amount,
               );
-
+              
               final sortedExpenses = [...expenses]
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -456,63 +460,68 @@ class _GroupScreenState extends State<GroupScreen> {
                                   size: 24,
                                 ),
                                 const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '$fromName → $toName',
-                                        style: AppTextStyles.title,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            '${settlement.amount.toStringAsFixed(2)} €',
-                                            style: AppTextStyles.amount,
+                               Expanded(
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '$fromName → $toName',
+                                            style: AppTextStyles.title,
                                           ),
-                                          const SizedBox(width: 12),
-                                          SizedBox(
-                                            height: 28,
-                                            child: ElevatedButton.icon(
-                                              onPressed: () async {
-                                                await _repaymentService.addRepayment(
-                                                  widget.groupId,
-                                                  RepaymentModel(
-                                                    id: '',
-                                                    from: settlement.from,
-                                                    to: settlement.to,
-                                                    amount: settlement.amount,
-                                                    createdAt: DateTime.now(),
-                                                  ),
-                                                );
-                                              },
-                                              icon: const Icon(
-                                                Icons.payments,
-                                                size: 12,
+                                        ),
+                                        Text(
+                                          '${settlement.amount.toStringAsFixed(2)} €',
+                                          style: AppTextStyles.amount.copyWith(
+                                            color: AppColors.success,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: SizedBox(
+                                        height: 28,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () async {
+                                            await _repaymentService.addRepayment(
+                                              widget.groupId,
+                                              RepaymentModel(
+                                                id: '',
+                                                from: settlement.from,
+                                                to: settlement.to,
+                                                amount: settlement.amount,
+                                                createdAt: DateTime.now(),
                                               ),
-                                              label: const Text(
-                                                'Rembourser',
-                                                style: TextStyle(fontSize: 11),
-                                              ),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: AppColors.secondary,
-                                                foregroundColor: AppColors.textLight,
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 0,
-                                                ),
-                                                minimumSize: Size.zero,
-                                                tapTargetSize:
-                                                    MaterialTapTargetSize.shrinkWrap,
-                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.payments,
+                                            size: 12,
+                                          ),
+                                          label: const Text(
+                                            'Rembourser',
+                                            style: TextStyle(fontSize: 11),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.secondary,
+                                            foregroundColor: AppColors.textLight,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 0,
                                             ),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                           ),
-                                        ],
+                                        ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
+                              ),
                               ],
                             ),
                           );
@@ -626,8 +635,11 @@ class _GroupScreenState extends State<GroupScreen> {
                                             child: const Text('Annuler'),
                                           ),
                                           ElevatedButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context, true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppColors.danger,
+                                              foregroundColor: AppColors.textLight,
+                                            ),
+                                            onPressed: () => Navigator.pop(context, true),
                                             child: const Text('Supprimer'),
                                           ),
                                         ],
@@ -668,6 +680,10 @@ class _GroupScreenState extends State<GroupScreen> {
                         builder: (context, snapshot) {
                           final payer = snapshot.data ?? '...';
 
+                          final date =
+                            '${expense.createdAt.day.toString().padLeft(2, '0')}/'
+                            '${expense.createdAt.month.toString().padLeft(2, '0')}';
+                          
                           return AppCard(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
@@ -693,7 +709,7 @@ class _GroupScreenState extends State<GroupScreen> {
                                 style: const TextStyle(fontSize: 22),
                               ),
                               title: Text(
-                                expense.title,
+                                '$date  ${expense.title}',
                                 style: AppTextStyles.title,
                               ),
                               subtitle: Text(
