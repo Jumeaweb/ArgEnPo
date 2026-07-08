@@ -154,7 +154,8 @@ class _GroupScreenState extends State<GroupScreen> {
           content: Text(
             switch (result) {
               AddMemberResult.added => 'Membre ajouté',
-              AddMemberResult.notFound => 'Utilisateur introuvable',
+              /*AddMemberResult.notFound => 'Utilisateur introuvable',*/
+              AddMemberResult.invited => 'Invitation envoyée',
               AddMemberResult.alreadyMember =>
                 'Cette personne est déjà membre du groupe',
             },

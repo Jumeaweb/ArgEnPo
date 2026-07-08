@@ -4,16 +4,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/group_model.dart';
 import '../models/group_member.dart';
 import '../models/user_model.dart';
+import 'invitation_service.dart';
 
 enum AddMemberResult {
   added,
-  notFound,
+  invited,
   alreadyMember,
 }
 
 class GroupService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final InvitationService _invitationService = InvitationService();
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
@@ -106,6 +108,8 @@ class GroupService {
 
     final normalizedEmail = email.trim().toLowerCase();
 
+    final groupDoc = await _firestore.collection('groups').doc(groupId).get();
+    
     final userSnapshot = await _firestore
         .collection('users')
         .where('email', isEqualTo: normalizedEmail)
@@ -113,13 +117,16 @@ class GroupService {
         .get();
 
     if (userSnapshot.docs.isEmpty) {
-      return AddMemberResult.notFound;
+      await _invitationService.createInvitation(
+        groupId: groupId,
+        groupName: groupDoc.data()?['name'] ?? 'Groupe',
+        email: normalizedEmail,
+      );
+
+      return AddMemberResult.invited;
     }
 
     final newMemberId = userSnapshot.docs.first.id;
-
-    final groupDoc =
-        await _firestore.collection('groups').doc(groupId).get();
 
     final members = List<String>.from(
       groupDoc.data()?['members'] ?? [],
@@ -169,7 +176,9 @@ class GroupService {
       return false;
     }
 
-    final groupDoc = await _firestore.collection('groups').doc(groupId).get();
+    final groupDoc =
+        await _firestore.collection('groups').doc(groupId).get();
+
     final data = groupDoc.data();
 
     if (data == null) {
@@ -188,7 +197,9 @@ class GroupService {
       return false;
     }
 
-    final groupDoc = await _firestore.collection('groups').doc(groupId).get();
+    final groupDoc =
+        await _firestore.collection('groups').doc(groupId).get();
+
     final data = groupDoc.data();
 
     if (data == null) {

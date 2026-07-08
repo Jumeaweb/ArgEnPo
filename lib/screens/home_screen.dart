@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/group_model.dart';
+import '../models/invitation_model.dart';
 import '../services/expense_service.dart';
 import '../services/group_service.dart';
+import '../services/invitation_service.dart';
 
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
 
 import 'create_group_screen.dart';
 import 'group_screen.dart';
+import 'invitations_screen.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -22,13 +25,21 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final GroupService _groupService = GroupService();
   final ExpenseService _expenseService = ExpenseService();
+  final InvitationService _invitationService = InvitationService();
 
   List<GroupModel> groups = [];
+  bool _hasCheckedInvitations = false;
 
   @override
   void initState() {
     super.initState();
-    loadGroups();
+    _initializeHome();
+  }
+
+  Future<void> _initializeHome() async {
+    await _invitationService.linkPendingInvitationsForCurrentUser();
+    await loadGroups();
+    await _checkInvitationsAfterLogin();
   }
 
   Future<void> loadGroups() async {
@@ -42,10 +53,118 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _checkInvitationsAfterLogin() async {
+    if (_hasCheckedInvitations) return;
+
+    _hasCheckedInvitations = true;
+
+    final invitations =
+        await _invitationService.getPendingInvitationsForCurrentUser();
+
+    if (!mounted || invitations.isEmpty) return;
+
+    final invitationCount = invitations.length;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          invitationCount == 1
+              ? 'Vous avez 1 invitation en attente'
+              : 'Vous avez $invitationCount invitations en attente',
+        ),
+        action: SnackBarAction(
+          label: 'Voir',
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const InvitationsScreen(),
+              ),
+            );
+
+            loadGroups();
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openInvitationsScreen() async {
+    await _invitationService.linkPendingInvitationsForCurrentUser();
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const InvitationsScreen(),
+      ),
+    );
+
+    loadGroups();
+  }
+
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  Widget _buildInvitationsButton() {
+    return StreamBuilder<List<InvitationModel>>(
+      stream: _invitationService.watchPendingInvitationsForCurrentUser(),
+      builder: (context, snapshot) {
+        final invitationCount = snapshot.data?.length ?? 0;
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.mail_outline),
+              tooltip: 'Invitations reçues',
+              onPressed: _openInvitationsScreen,
+            ),
+            if (invitationCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  child: Text(
+                    invitationCount > 9 ? '9+' : '$invitationCount',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -56,22 +175,11 @@ class _HomeScreenState extends State<HomeScreen> {
           style: AppTextStyles.appBarTitle,
         ),
         actions: [
+          _buildInvitationsButton(),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Déconnexion',
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-
-              if (!context.mounted) return;
-
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const LoginScreen(),
-                ),
-                (route) => false,
-              );
-            },
+            onPressed: _signOut,
           ),
         ],
       ),
