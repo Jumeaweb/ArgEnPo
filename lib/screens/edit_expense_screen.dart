@@ -60,6 +60,7 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
 
     final updatedExpense = ExpenseModel(
       id: widget.expense.id,
+      groupId: widget.expense.groupId,
       title: titleController.text.trim(),
       amount: amount,
       paidBy: widget.expense.paidBy,

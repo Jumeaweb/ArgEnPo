@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../services/auth_service.dart';
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
+import '../layout/main_screen.dart';
 
 import 'email_login_screen.dart';
 
@@ -38,6 +39,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginGoogle(BuildContext context) async {
     try {
       await _authService.signInWithGoogle();
+      if (!context.mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const MainScreen(),
+        ),
+      );
     } catch (e) {
       if (!context.mounted) return;
 

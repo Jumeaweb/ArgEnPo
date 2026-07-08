@@ -1,42 +1,63 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ExpenseModel {
   final String id;
+  final String groupId;
   final String title;
   final double amount;
   final String paidBy;
   final List<String> participants;
-  final DateTime createdAt;
   final String category;
+  final DateTime createdAt;
 
   ExpenseModel({
     required this.id,
+    required this.groupId,
     required this.title,
     required this.amount,
     required this.paidBy,
     required this.participants,
-    required this.createdAt,
     required this.category,
+    required this.createdAt,
   });
+
+  List<String> get sharedWith => participants;
 
   Map<String, dynamic> toMap() {
     return {
+      'groupId': groupId,
       'title': title,
       'amount': amount,
       'paidBy': paidBy,
       'participants': participants,
-      'createdAt': createdAt.toIso8601String(),
       'category': category,
+      'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
-  factory ExpenseModel.fromMap(Map<String, dynamic> map, String id) {
+  Map<String, dynamic> toFirestore() {
+    return toMap();
+  }
+
+  factory ExpenseModel.fromMap(Map<String, dynamic> data, String id) {
     return ExpenseModel(
       id: id,
-      title: map['title'],
-      amount: (map['amount'] as num).toDouble(),
-      paidBy: map['paidBy'],
-      participants: List<String>.from(map['participants']),
-      createdAt: DateTime.parse(map['createdAt']),
-      category: map['category'] ?? 'Autre',
+      groupId: data['groupId'] ?? '',
+      title: data['title'] ?? '',
+      amount: (data['amount'] ?? 0).toDouble(),
+      paidBy: data['paidBy'] ?? '',
+      participants: List<String>.from(
+        data['participants'] ?? data['sharedWith'] ?? [],
+      ),
+      category: data['category'] ?? 'Autre',
+      createdAt: data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
     );
+  }
+
+  factory ExpenseModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return ExpenseModel.fromMap(data, doc.id);
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
+import '../layout/main_screen.dart';
 
 class EmailLoginScreen extends StatefulWidget {
   const EmailLoginScreen({super.key});
@@ -55,9 +56,15 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
         );
       }
 
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const MainScreen(),
+        ),
+        (route) => false,
+      );
     } catch (e) {
       _showMessage(e.toString());
     }

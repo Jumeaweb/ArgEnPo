@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/group_model.dart';
+import '../models/group_member.dart';
+import '../models/user_model.dart';
 
 enum AddMemberResult {
   added,
@@ -24,15 +26,26 @@ class GroupService {
       throw Exception('Utilisateur non connecté');
     }
 
+        final groupDoc = _firestore.collection('groups').doc();
+
     final group = GroupModel(
-      id: '',
-      name: name.trim(),
-      createdBy: userId,
+      id: groupDoc.id,
+      name: name,
+      ownerId: userId,
+      admins: [userId],
       members: [userId],
       createdAt: DateTime.now(),
     );
 
-    await _firestore.collection('groups').add(group.toMap());
+    await groupDoc.set(group.toMap());
+
+    await groupDoc.collection('members').doc(userId).set(
+      GroupMember(
+        uid: userId,
+        role: GroupRole.owner,
+        joinedAt: DateTime.now(),
+      ).toMap(),
+    );
   }
 
   Future<List<GroupModel>> getUserGroups(String userId) async {
@@ -57,7 +70,11 @@ class GroupService {
     }
 
     final groups = groupsById.values.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      ..sort((a, b) {
+        final dateA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final dateB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return dateB.compareTo(dateA);
+      });
 
     return groups;
   }
@@ -75,6 +92,18 @@ class GroupService {
     String groupId,
     String email,
   ) async {
+    final userId = _currentUserId;
+
+    if (userId == null) {
+      throw Exception('Utilisateur non connecté');
+    }
+
+    final canManage = await canManageMembers(groupId);
+
+    if (!canManage) {
+      throw Exception('Vous n’avez pas les droits pour ajouter un membre');
+    }
+
     final normalizedEmail = email.trim().toLowerCase();
 
     final userSnapshot = await _firestore
@@ -87,7 +116,7 @@ class GroupService {
       return AddMemberResult.notFound;
     }
 
-    final userId = userSnapshot.docs.first.id;
+    final newMemberId = userSnapshot.docs.first.id;
 
     final groupDoc =
         await _firestore.collection('groups').doc(groupId).get();
@@ -96,15 +125,84 @@ class GroupService {
       groupDoc.data()?['members'] ?? [],
     );
 
-    if (members.contains(userId)) {
+    if (members.contains(newMemberId)) {
       return AddMemberResult.alreadyMember;
     }
 
     await _firestore.collection('groups').doc(groupId).update({
-      'members': FieldValue.arrayUnion([userId]),
+      'members': FieldValue.arrayUnion([newMemberId]),
     });
 
     return AddMemberResult.added;
+  }
+
+  Future<List<UserModel>> getMembers(String groupId) async {
+    final groupDoc =
+        await _firestore.collection('groups').doc(groupId).get();
+
+    final memberIds = List<String>.from(
+      groupDoc.data()?['members'] ?? [],
+    );
+
+    if (memberIds.isEmpty) {
+      return [];
+    }
+
+    final members = <UserModel>[];
+
+    for (final uid in memberIds) {
+      final userDoc =
+          await _firestore.collection('users').doc(uid).get();
+
+      if (userDoc.exists && userDoc.data() != null) {
+        members.add(UserModel.fromMap(userDoc.data()!));
+      }
+    }
+
+    return members;
+  }
+
+  Future<bool> isOwner(String groupId) async {
+    final userId = _currentUserId;
+
+    if (userId == null) {
+      return false;
+    }
+
+    final groupDoc = await _firestore.collection('groups').doc(groupId).get();
+    final data = groupDoc.data();
+
+    if (data == null) {
+      return false;
+    }
+
+    final ownerId = data['ownerId'] as String?;
+
+    return ownerId == userId;
+  }
+
+  Future<bool> isAdmin(String groupId) async {
+    final userId = _currentUserId;
+
+    if (userId == null) {
+      return false;
+    }
+
+    final groupDoc = await _firestore.collection('groups').doc(groupId).get();
+    final data = groupDoc.data();
+
+    if (data == null) {
+      return false;
+    }
+
+    final ownerId = data['ownerId'] as String?;
+    final admins = List<String>.from(data['admins'] ?? []);
+
+    return ownerId == userId || admins.contains(userId);
+  }
+
+  Future<bool> canManageMembers(String groupId) async {
+    return isAdmin(groupId);
   }
 
   Future<void> deleteGroup(String groupId) async {

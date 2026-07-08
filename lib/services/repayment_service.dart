@@ -33,6 +33,25 @@ class RepaymentService {
         .toList();
   }
 
+  Stream<List<RepaymentModel>> watchRepayments(
+    String groupId,
+  ) {
+    return _firestore
+        .collection('groups')
+        .doc(groupId)
+        .collection('repayments')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => RepaymentModel.fromMap(
+                    doc.data(),
+                    doc.id,
+                  ))
+              .toList(),
+        );
+  }
+
   Future<void> deleteRepayment(
     String groupId,
     String repaymentId,

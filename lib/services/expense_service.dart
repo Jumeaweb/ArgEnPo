@@ -1,36 +1,37 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/expense_model.dart';
 
 class ExpenseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Future<void> addExpense(
-    String groupId,
-    ExpenseModel expense,
-  ) async {
+  Future<void> addExpense(dynamic groupIdOrExpense, [ExpenseModel? expense]) async {
+    final ExpenseModel finalExpense =
+        expense ?? groupIdOrExpense as ExpenseModel;
+
     await _firestore
         .collection('groups')
-        .doc(groupId)
+        .doc(finalExpense.groupId)
         .collection('expenses')
-        .add(expense.toMap());
+        .add(finalExpense.toMap());
   }
 
   Future<void> updateExpense(
-    String groupId,
-    ExpenseModel expense,
-  ) async {
+    dynamic groupIdOrExpense, [
+    ExpenseModel? expense,
+  ]) async {
+    final ExpenseModel finalExpense =
+        expense ?? groupIdOrExpense as ExpenseModel;
+
     await _firestore
         .collection('groups')
-        .doc(groupId)
+        .doc(finalExpense.groupId)
         .collection('expenses')
-        .doc(expense.id)
-        .update(expense.toMap());
+        .doc(finalExpense.id)
+        .update(finalExpense.toMap());
   }
 
-  Future<void> deleteExpense(
-    String groupId,
-    String expenseId,
-  ) async {
+  Future<void> deleteExpense(String groupId, String expenseId) async {
     await _firestore
         .collection('groups')
         .doc(groupId)
@@ -39,49 +40,44 @@ class ExpenseService {
         .delete();
   }
 
-  Future<List<ExpenseModel>> getExpenses(
-    String groupId,
-  ) async {
+  Stream<List<ExpenseModel>> watchExpenses(String groupId) {
+    return _firestore
+        .collection('groups')
+        .doc(groupId)
+        .collection('expenses')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ExpenseModel.fromMap(doc.data(), doc.id))
+              .toList(),
+        );
+  }
+
+  Future<List<ExpenseModel>> getExpenses(String groupId) async {
     final snapshot = await _firestore
         .collection('groups')
         .doc(groupId)
         .collection('expenses')
+        .orderBy('createdAt', descending: true)
         .get();
 
     return snapshot.docs
-        .map((doc) => ExpenseModel.fromMap(
-              doc.data(),
-              doc.id,
-            ))
+        .map((doc) => ExpenseModel.fromMap(doc.data(), doc.id))
         .toList();
   }
-  Future<int> getExpenseCount(String groupId) async {
-  final snapshot = await _firestore
-      .collection('groups')
-      .doc(groupId)
-      .collection('expenses')
-      .get();
 
-  return snapshot.docs.length;
-}
+  Future<int> getExpenseCount(String groupId) async {
+    final expenses = await getExpenses(groupId);
+    return expenses.length;
+  }
 
   Future<double> getTotalAmount(String groupId) async {
-    final snapshot = await _firestore
-        .collection('groups')
-        .doc(groupId)
-        .collection('expenses')
-        .get();
+    final expenses = await getExpenses(groupId);
 
-    double total = 0;
-
-    for (final doc in snapshot.docs) {
-      final amount =
-          (doc.data()['amount'] as num?)?.toDouble() ?? 0;
-
-      total += amount;
-    }
-
-    return total;
+    return expenses.fold<double>(
+      0,
+      (total, expense) => total + expense.amount,
+    );
   }
-  
 }

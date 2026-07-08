@@ -67,6 +67,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     final expense = ExpenseModel(
       id: '',
+      groupId: widget.groupId,
       title: titleController.text.trim(),
       amount: amount,
       paidBy: selectedPayer ?? user.uid,
@@ -75,7 +76,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       createdAt: DateTime.now(),
     );
 
-    await _service.addExpense(widget.groupId, expense);
+    await _service.addExpense(expense);
 
     if (mounted) {
       Navigator.pop(context);

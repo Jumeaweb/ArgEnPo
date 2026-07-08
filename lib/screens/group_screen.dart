@@ -12,6 +12,7 @@ import '../services/user_service.dart';
 import '../theme/theme.dart';
 import '../constants/constants.dart';
 import '../widgets/widgets.dart';
+import '../widgets/member_list.dart';
 
 import 'add_expense_screen.dart';
 import 'edit_expense_screen.dart';
@@ -37,30 +38,6 @@ class _GroupScreenState extends State<GroupScreen> {
   final DebtService _debtService = DebtService();
   final UserService _userService = UserService();
   final RepaymentService _repaymentService = RepaymentService();
-
-  List<ExpenseModel> expenses = [];
-  List<RepaymentModel> repayments = [];
-
-  @override
-  void initState() {
-    super.initState();
-    loadExpenses();
-  }
-
-  Future<void> loadExpenses() async {
-    final expenseData =
-        await _expenseService.getExpenses(widget.groupId);
-
-    final repaymentData =
-        await _repaymentService.getRepayments(widget.groupId);
-
-    if (!mounted) return;
-
-    setState(() {
-      expenses = expenseData;
-      repayments = repaymentData;
-    });
-  }
 
   String _categoryIcon(String category) {
     return ExpenseCategoryIcons.get(category);
@@ -140,6 +117,7 @@ class _GroupScreenState extends State<GroupScreen> {
         title: const Text('Ajouter un membre'),
         content: TextField(
           controller: controller,
+          keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
             hintText: 'email@gmail.com',
           ),
@@ -159,58 +137,43 @@ class _GroupScreenState extends State<GroupScreen> {
 
     if (email == null || email.trim().isEmpty) return;
 
-    final result = await GroupService().addMemberByEmail(
-      widget.groupId,
-      email.trim(),
-    );
+    try {
+      final result = await GroupService().addMemberByEmail(
+        widget.groupId,
+        email.trim().toLowerCase(),
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          switch (result) {
-            AddMemberResult.added => 'Membre ajouté',
-            AddMemberResult.notFound => 'Utilisateur introuvable',
-            AddMemberResult.alreadyMember => 'Cette personne est déjà membre du groupe',
-          },
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            switch (result) {
+              AddMemberResult.added => 'Membre ajouté',
+              AddMemberResult.notFound => 'Utilisateur introuvable',
+              AddMemberResult.alreadyMember =>
+                'Cette personne est déjà membre du groupe',
+            },
+          ),
         ),
-      ),
-    );
+      );
+
+      if (result == AddMemberResult.added) {
+        setState(() {});
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de l’ajout : $e'),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final rawBalances = _debtService.calculateBalances(expenses);
-
-    final balances = _debtService.applyRepayments(
-      rawBalances,
-      repayments,
-    );
-
-    final settlements =
-        _debtService.calculateSettlements(balances);
-
-    final totalAmount = expenses.fold<double>(
-      0,
-      (sum, e) => sum + e.amount,
-    );
-
-    final remainingToSettle = settlements.fold<double>(
-      0,
-      (sum, s) => sum + s.amount,
-    );
-
-    final totalRepaid = repayments.fold<double>(
-      0,
-      (sum, r) => sum + r.amount,
-    );
-    final sortedExpenses = [...expenses]
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    final sortedRepayments = [...repayments]
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -222,9 +185,20 @@ class _GroupScreenState extends State<GroupScreen> {
           style: AppTextStyles.appBarTitle,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: _addMember,
+          FutureBuilder<bool>(
+            future: GroupService().canManageMembers(widget.groupId),
+            builder: (context, snapshot) {
+              final canManageMembers = snapshot.data ?? false;
+
+              if (!canManageMembers) {
+                return const SizedBox.shrink();
+              }
+
+              return IconButton(
+                icon: const Icon(Icons.person_add),
+                onPressed: _addMember,
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.edit),
@@ -239,8 +213,8 @@ class _GroupScreenState extends State<GroupScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textLight,
-        onPressed: () async {
-          await Navigator.push(
+        onPressed: () {
+          Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => AddExpenseScreen(
@@ -249,526 +223,499 @@ class _GroupScreenState extends State<GroupScreen> {
               ),
             ),
           );
-
-          loadExpenses();
         },
         child: const Icon(Icons.add),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppDimensions.padding),
-        children: [
-          AppCard(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 16,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.savings_outlined,
-                        color: AppColors.primary,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'TOTAL',
-                        style: AppTextStyles.subtitle,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${totalAmount.toStringAsFixed(2)} €',
-                        style: AppTextStyles.summaryAmount.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+      body: StreamBuilder<List<ExpenseModel>>(
+        stream: _expenseService.watchExpenses(widget.groupId),
+        builder: (context, expenseSnapshot) {
+          if (expenseSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-                Container(
-                  height: 70,
-                  width: 1,
-                  color: AppColors.textSecondary.withValues(alpha: 0.25),
-                ),
-
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.check_circle_outline,
-                        color: AppColors.success,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'REMBOURSÉ',
-                        style: AppTextStyles.subtitle,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${totalRepaid.toStringAsFixed(2)} €',
-                        style: AppTextStyles.summaryAmount.copyWith(
-                          color: AppColors.success,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Container(
-                  height: 70,
-                  width: 1,
-                  color: AppColors.textSecondary.withValues(alpha: 0.25),
-                ),
-
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.balance,
-                        color: AppColors.warning,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'RESTE',
-                        style: AppTextStyles.subtitle,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${remainingToSettle.toStringAsFixed(2)} €',
-                        style: AppTextStyles.summaryAmount.copyWith(
-                          color: remainingToSettle == 0
-                              ? AppColors.success
-                              : AppColors.warning,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          /*AppCard(
-            child: Column(
-              children: [
-                const Text(
-                  'TOTAL',
-                  style: AppTextStyles.subtitle,
-                ),
-                Text(
-                  '${totalAmount.toStringAsFixed(2)} €',
-                  style: AppTextStyles.summaryAmount.copyWith(
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'REMBOURSÉ',
-                  style: AppTextStyles.subtitle,
-                ),
-                Text(
-                  '${totalRepaid.toStringAsFixed(2)} €',
-                  style: AppTextStyles.summaryAmount.copyWith(
-                    color: AppColors.success,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'RESTE À ÉQUILIBRER',
-                  style: AppTextStyles.subtitle,
-                ),
-                Text(
-                  '${remainingToSettle.toStringAsFixed(2)} €',
-                  style: AppTextStyles.summaryAmount.copyWith(
-                    color: remainingToSettle == 0
-                        ? AppColors.success
-                        : AppColors.warning,
-                  ),
-                ),
-              ],
-            ),
-          ),*/
-
-          const AppSectionTitle('Balances'),
-
-          ...balances.entries.map((entry) {
-            final uid = entry.key;
-            final amount = entry.value;
-
-            return FutureBuilder<String>(
-              future: _userService.getUserDisplayName(uid),
-              builder: (context, snapshot) {
-                final name = snapshot.data ?? '...';
-
-                return AppCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 2,
-                  ),
-                  child: ListTile(
-                    dense: true,
-                    visualDensity: const VisualDensity(
-                      vertical: -4,
-                    ),
-                    title: Text(
-                      name,
-                      style: AppTextStyles.title,
-                    ),
-                    trailing: Text(
-                      '${amount.toStringAsFixed(2)} €',
-                      style: AppTextStyles.amount.copyWith(
-                        color: amount >= 0
-                            ? AppColors.success
-                            : AppColors.danger,
-                      ),
-                    ),
-                  ),
-                );
-              },
+          if (expenseSnapshot.hasError) {
+            return const Center(
+              child: Text('Erreur lors du chargement des dépenses'),
             );
-          }),
+          }
 
-          const AppSectionTitle('Qui rembourse qui ?'),
+          final expenses = expenseSnapshot.data ?? [];
 
-          if (settlements.isEmpty)
-            const AppCard(
-              child: ListTile(
-                title: Text('Tout est équilibré'),
-              ),
-            )
-          else
-            ...settlements.map((settlement) {
-              return FutureBuilder<List<String>>(
-                future: Future.wait([
-                  _userService.getUserDisplayName(settlement.from),
-                  _userService.getUserDisplayName(settlement.to),
-                ]),
-                builder: (context, snapshot) {
-                  final fromName = snapshot.data?[0] ?? '...';
-                  final toName = snapshot.data?[1] ?? '...';
+          return StreamBuilder<List<RepaymentModel>>(
+            stream: _repaymentService.watchRepayments(widget.groupId),
+            builder: (context, repaymentSnapshot) {
+              if (repaymentSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-                  return AppCard(
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.swap_horiz,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
+              if (repaymentSnapshot.hasError) {
+                return const Center(
+                  child: Text('Erreur lors du chargement des remboursements'),
+                );
+              }
 
-                        const SizedBox(width: 12),
+              final repayments = repaymentSnapshot.data ?? [];
 
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '$fromName → $toName',
-                                style: AppTextStyles.title,
-                              ),
+              final rawBalances = _debtService.calculateBalances(expenses);
 
-                              const SizedBox(height: 4),
-
-                             Row(
-                              children: [
-                                Text(
-                                  '${settlement.amount.toStringAsFixed(2)} €',
-                                  style: AppTextStyles.amount,
-                                ),
-
-                                const SizedBox(width: 12),
-
-                                SizedBox(
-                                  height: 28,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () async {
-                                      await _repaymentService.addRepayment(
-                                        widget.groupId,
-                                        RepaymentModel(
-                                          id: '',
-                                          from: settlement.from,
-                                          to: settlement.to,
-                                          amount: settlement.amount,
-                                          createdAt: DateTime.now(),
-                                        ),
-                                      );
-
-                                      await loadExpenses();
-                                    },
-                                    icon: const Icon(Icons.payments, size: 12),
-                                    label: const Text(
-                                      'Rembourser',
-                                      style: TextStyle(fontSize: 11),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.secondary,
-                                      foregroundColor: AppColors.textLight,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 0,
-                                      ),
-                                      minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ), 
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+              final balances = _debtService.applyRepayments(
+                rawBalances,
+                repayments,
               );
-            }),
 
-          const AppSectionTitle('Remboursements effectués'),
+              final settlements = _debtService.calculateSettlements(balances);
 
-          if (repayments.isEmpty)
-            const AppCard(
-              child: ListTile(
-                dense: true,
-                visualDensity: VisualDensity(
-                  vertical: -4,
-                ),
-                title: Text('Aucun remboursement enregistré'),
-              ),
-            )
-          else
-            ...sortedRepayments.map((repayment) {
-              return FutureBuilder<List<String>>(
-                future: Future.wait([
-                  _userService.getUserDisplayName(repayment.from),
-                  _userService.getUserDisplayName(repayment.to),
-                ]),
-                builder: (context, snapshot) {
-                  final fromName = snapshot.data?[0] ?? '...';
-                  final toName = snapshot.data?[1] ?? '...';
+              final totalAmount = expenses.fold<double>(
+                0,
+                (sum, e) => sum + e.amount,
+              );
 
-                  final date =
-                      '${repayment.createdAt.day.toString().padLeft(2, '0')}/'
-                      '${repayment.createdAt.month.toString().padLeft(2, '0')}/'
-                      '${repayment.createdAt.year} à '
-                      '${repayment.createdAt.hour.toString().padLeft(2, '0')}:'
-                      '${repayment.createdAt.minute.toString().padLeft(2, '0')}';
-                  return AppCard(
+              final remainingToSettle = settlements.fold<double>(
+                0,
+                (sum, s) => sum + s.amount,
+              );
+
+              final totalRepaid = repayments.fold<double>(
+                0,
+                (sum, r) => sum + r.amount,
+              );
+
+              final sortedExpenses = [...expenses]
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+              final sortedRepayments = [...repayments]
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+              return ListView(
+                padding: const EdgeInsets.all(AppDimensions.padding),
+                children: [
+                  AppCard(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                      horizontal: 10,
+                      vertical: 16,
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check,
-                                color: AppColors.textLight,
-                                size: 12,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Remboursé',
-                                style: TextStyle(
-                                  color: AppColors.textLight,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
                         Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                '$fromName → $toName',
-                                style: AppTextStyles.title,
+                              const Icon(
+                                Icons.savings_outlined,
+                                color: AppColors.primary,
+                                size: 24,
                               ),
-
-                              const SizedBox(height: 4),
-
-                              Text(
-                                '${repayment.amount.toStringAsFixed(2)} € • $date',
+                              const SizedBox(height: 6),
+                              const Text(
+                                'TOTAL',
                                 style: AppTextStyles.subtitle,
                               ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${totalAmount.toStringAsFixed(2)} €',
+                                style: AppTextStyles.summaryAmount.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete,
-                            color: AppColors.danger,
-                            size: 20,
-                          ),
-                          onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                title: const Text('Supprimer le remboursement ?'),
-                                content: Text(
-                                  'Supprimer ce remboursement de ${repayment.amount.toStringAsFixed(2)} € ?',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Annuler'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('Supprimer'),
-                                  ),
-                                ],
+                        Container(
+                          height: 70,
+                          width: 1,
+                          color: AppColors.textSecondary.withValues(alpha: 0.25),
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.check_circle_outline,
+                                color: AppColors.success,
+                                size: 24,
                               ),
-                            );
-
-                            if (confirm != true) return;
-
-                            await _repaymentService.deleteRepayment(
-                              widget.groupId,
-                              repayment.id,
-                            );
-
-                            await loadExpenses();
-                          },
+                              const SizedBox(height: 6),
+                              const Text(
+                                'REMBOURSÉ',
+                                style: AppTextStyles.subtitle,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${totalRepaid.toStringAsFixed(2)} €',
+                                style: AppTextStyles.summaryAmount.copyWith(
+                                  color: AppColors.success,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          height: 70,
+                          width: 1,
+                          color: AppColors.textSecondary.withValues(alpha: 0.25),
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.balance,
+                                color: AppColors.warning,
+                                size: 24,
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'RESTE',
+                                style: AppTextStyles.subtitle,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${remainingToSettle.toStringAsFixed(2)} €',
+                                style: AppTextStyles.summaryAmount.copyWith(
+                                  color: remainingToSettle == 0
+                                      ? AppColors.success
+                                      : AppColors.warning,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  );
-                  /*return AppCard(
-                    child: ListTile(
-                      leading: const Icon(
-                        Icons.check_circle,
-                        color: AppColors.success,
-                      ),
-                      title: Text(
-                        '$fromName a remboursé $toName',
-                        style: AppTextStyles.title,
-                      ),
-                      subtitle: Text(
-                        '${repayment.amount.toStringAsFixed(2)} € • $date',
-                        style: AppTextStyles.subtitle,
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(
-                          Icons.delete,
-                          color: AppColors.danger,
-                        ),
-                        onPressed: () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text(
-                                'Supprimer le remboursement ?',
+                  ),
+
+                  const AppSectionTitle('Membres'),
+
+                  MemberList(
+                    groupId: widget.groupId,
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  const AppSectionTitle('Balances'),
+
+                  ...balances.entries.map((entry) {
+                    final uid = entry.key;
+                    final amount = entry.value;
+
+                    return FutureBuilder<String>(
+                      future: _userService.getUserDisplayName(uid),
+                      builder: (context, snapshot) {
+                        final name = snapshot.data ?? '...';
+
+                        return AppCard(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 2,
+                          ),
+                          child: ListTile(
+                            dense: true,
+                            visualDensity: const VisualDensity(
+                              vertical: -4,
+                            ),
+                            title: Text(
+                              name,
+                              style: AppTextStyles.title,
+                            ),
+                            trailing: Text(
+                              '${amount.toStringAsFixed(2)} €',
+                              style: AppTextStyles.amount.copyWith(
+                                color: amount >= 0
+                                    ? AppColors.success
+                                    : AppColors.danger,
                               ),
-                              content: Text(
-                                'Supprimer ce remboursement de ${repayment.amount.toStringAsFixed(2)} € ?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text('Annuler'),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }),
+
+                  const AppSectionTitle('Qui rembourse qui ?'),
+
+                  if (settlements.isEmpty)
+                    const AppCard(
+                      child: ListTile(
+                        title: Text('Tout est équilibré'),
+                      ),
+                    )
+                  else
+                    ...settlements.map((settlement) {
+                      return FutureBuilder<List<String>>(
+                        future: Future.wait([
+                          _userService.getUserDisplayName(settlement.from),
+                          _userService.getUserDisplayName(settlement.to),
+                        ]),
+                        builder: (context, snapshot) {
+                          final fromName = snapshot.data?[0] ?? '...';
+                          final toName = snapshot.data?[1] ?? '...';
+
+                          return AppCard(
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.swap_horiz,
+                                  color: AppColors.primary,
+                                  size: 24,
                                 ),
-                                ElevatedButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, true),
-                                  child: const Text('Supprimer'),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$fromName → $toName',
+                                        style: AppTextStyles.title,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '${settlement.amount.toStringAsFixed(2)} €',
+                                            style: AppTextStyles.amount,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          SizedBox(
+                                            height: 28,
+                                            child: ElevatedButton.icon(
+                                              onPressed: () async {
+                                                await _repaymentService.addRepayment(
+                                                  widget.groupId,
+                                                  RepaymentModel(
+                                                    id: '',
+                                                    from: settlement.from,
+                                                    to: settlement.to,
+                                                    amount: settlement.amount,
+                                                    createdAt: DateTime.now(),
+                                                  ),
+                                                );
+                                              },
+                                              icon: const Icon(
+                                                Icons.payments,
+                                                size: 12,
+                                              ),
+                                              label: const Text(
+                                                'Rembourser',
+                                                style: TextStyle(fontSize: 11),
+                                              ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppColors.secondary,
+                                                foregroundColor: AppColors.textLight,
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 0,
+                                                ),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize.shrinkWrap,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
                           );
-
-                          if (confirm != true) return;
-
-                          await _repaymentService.deleteRepayment(
-                            widget.groupId,
-                            repayment.id,
-                          );
-
-                          await loadExpenses();
                         },
-                      ),
-                    ),
-                  );*/
-                },
-              );
-            }),
+                      );
+                    }),
 
-          const AppSectionTitle('Dépenses'),
+                  const AppSectionTitle('Remboursements effectués'),
 
-          ...sortedExpenses.map((expense) {
-            return FutureBuilder<String>(
-              future: _userService.getUserDisplayName(expense.paidBy),
-              builder: (context, snapshot) {
-                final payer = snapshot.data ?? '...';
-
-                return AppCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 2,
-                  ),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => EditExpenseScreen(
-                          groupId: widget.groupId,
-                          expense: expense,
+                  if (repayments.isEmpty)
+                    const AppCard(
+                      child: ListTile(
+                        dense: true,
+                        visualDensity: VisualDensity(
+                          vertical: -4,
                         ),
+                        title: Text('Aucun remboursement enregistré'),
                       ),
-                    );
+                    )
+                  else
+                    ...sortedRepayments.map((repayment) {
+                      return FutureBuilder<List<String>>(
+                        future: Future.wait([
+                          _userService.getUserDisplayName(repayment.from),
+                          _userService.getUserDisplayName(repayment.to),
+                        ]),
+                        builder: (context, snapshot) {
+                          final fromName = snapshot.data?[0] ?? '...';
+                          final toName = snapshot.data?[1] ?? '...';
 
-                    loadExpenses();
-                  },
-                  child: ListTile(
-                    dense: true,
-                    visualDensity: const VisualDensity(vertical: -4),
-                    contentPadding: EdgeInsets.zero,
-                    leading: Text(
-                      _categoryIcon(expense.category),
-                      style: const TextStyle(fontSize: 22),
-                    ),
-                    title: Text(
-                      expense.title,
-                      style: AppTextStyles.title,
-                    ),
-                    subtitle: Text(
-                      '${expense.category} • Payé par $payer',
-                      style: AppTextStyles.subtitle,
-                    ),
-                    trailing: Text(
-                      '${expense.amount.toStringAsFixed(2)} €',
-                      style: AppTextStyles.amount.copyWith(
-                        color: AppColors.primary,
+                          final date =
+                              '${repayment.createdAt.day.toString().padLeft(2, '0')}/'
+                              '${repayment.createdAt.month.toString().padLeft(2, '0')}/'
+                              '${repayment.createdAt.year} à '
+                              '${repayment.createdAt.hour.toString().padLeft(2, '0')}:'
+                              '${repayment.createdAt.minute.toString().padLeft(2, '0')}';
+
+                          return AppCard(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.secondary,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.check,
+                                        color: AppColors.textLight,
+                                        size: 12,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Remboursé',
+                                        style: TextStyle(
+                                          color: AppColors.textLight,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$fromName → $toName',
+                                        style: AppTextStyles.title,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${repayment.amount.toStringAsFixed(2)} € • $date',
+                                        style: AppTextStyles.subtitle,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: AppColors.danger,
+                                    size: 20,
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text(
+                                          'Supprimer le remboursement ?',
+                                        ),
+                                        content: Text(
+                                          'Supprimer ce remboursement de ${repayment.amount.toStringAsFixed(2)} € ?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Annuler'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text('Supprimer'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (confirm != true) return;
+
+                                    await _repaymentService.deleteRepayment(
+                                      widget.groupId,
+                                      repayment.id,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    }),
+
+                  const AppSectionTitle('Dépenses'),
+
+                  if (sortedExpenses.isEmpty)
+                    const AppCard(
+                      child: ListTile(
+                        dense: true,
+                        visualDensity: VisualDensity(
+                          vertical: -4,
+                        ),
+                        title: Text('Aucune dépense enregistrée'),
                       ),
-                    ),
-                  ),
-                );
-              },
-            );
-          }),
-        ],
+                    )
+                  else
+                    ...sortedExpenses.map((expense) {
+                      return FutureBuilder<String>(
+                        future: _userService.getUserDisplayName(expense.paidBy),
+                        builder: (context, snapshot) {
+                          final payer = snapshot.data ?? '...';
+
+                          return AppCard(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 2,
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditExpenseScreen(
+                                    groupId: widget.groupId,
+                                    expense: expense,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: ListTile(
+                              dense: true,
+                              visualDensity: const VisualDensity(vertical: -4),
+                              contentPadding: EdgeInsets.zero,
+                              leading: Text(
+                                _categoryIcon(expense.category),
+                                style: const TextStyle(fontSize: 22),
+                              ),
+                              title: Text(
+                                expense.title,
+                                style: AppTextStyles.title,
+                              ),
+                              subtitle: Text(
+                                '${expense.category} • Payé par $payer',
+                                style: AppTextStyles.subtitle,
+                              ),
+                              trailing: Text(
+                                '${expense.amount.toStringAsFixed(2)} €',
+                                style: AppTextStyles.amount.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
