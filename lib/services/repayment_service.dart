@@ -1,11 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/activity_model.dart';
 import '../models/repayment_model.dart';
+import 'activity_service.dart';
 import 'notification_service.dart';
 
 class RepaymentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final NotificationService _notificationService = NotificationService();
+  final ActivityService _activityService = ActivityService();
 
   Future<void> addRepayment(
     String groupId,
@@ -18,6 +21,14 @@ class RepaymentService {
         .doc();
 
     await repaymentRef.set(repayment.toMap());
+
+    await _activityService.addActivity(
+      groupId: groupId,
+      type: ActivityType.repaymentCreated,
+      targetUserId: repayment.to,
+      repaymentId: repaymentRef.id,
+      amount: repayment.amount,
+    );
 
     await _notificationService.createRepaymentNotifications(
       groupId: groupId,
@@ -70,11 +81,23 @@ class RepaymentService {
     String groupId,
     String repaymentId,
   ) async {
-    await _firestore
+    final repaymentRef = _firestore
         .collection('groups')
         .doc(groupId)
         .collection('repayments')
-        .doc(repaymentId)
-        .delete();
+        .doc(repaymentId);
+
+    final repaymentDoc = await repaymentRef.get();
+    final repaymentData = repaymentDoc.data();
+
+    await repaymentRef.delete();
+
+    await _activityService.addActivity(
+      groupId: groupId,
+      type: ActivityType.repaymentDeleted,
+      targetUserId: repaymentData?['to'] as String?,
+      repaymentId: repaymentId,
+      amount: (repaymentData?['amount'] as num?)?.toDouble(),
+    );
   }
 }

@@ -1,11 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/activity_model.dart';
 import '../models/expense_model.dart';
+import 'activity_service.dart';
 import 'notification_service.dart';
 
 class ExpenseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final NotificationService _notificationService = NotificationService();
+  final ActivityService _activityService = ActivityService();
 
   Future<void> addExpense(
     dynamic groupIdOrExpense, [
@@ -21,6 +24,14 @@ class ExpenseService {
         .doc();
 
     await expenseRef.set(finalExpense.toMap());
+
+    await _activityService.addActivity(
+      groupId: finalExpense.groupId,
+      type: ActivityType.expenseCreated,
+      expenseId: expenseRef.id,
+      title: finalExpense.title,
+      amount: finalExpense.amount,
+    );
 
     await _notificationService.createExpenseNotifications(
       expenseId: expenseRef.id,
@@ -41,15 +52,35 @@ class ExpenseService {
         .collection('expenses')
         .doc(finalExpense.id)
         .update(finalExpense.toMap());
+
+    await _activityService.addActivity(
+      groupId: finalExpense.groupId,
+      type: ActivityType.expenseUpdated,
+      expenseId: finalExpense.id,
+      title: finalExpense.title,
+      amount: finalExpense.amount,
+    );
   }
 
   Future<void> deleteExpense(String groupId, String expenseId) async {
-    await _firestore
+    final expenseRef = _firestore
         .collection('groups')
         .doc(groupId)
         .collection('expenses')
-        .doc(expenseId)
-        .delete();
+        .doc(expenseId);
+
+    final expenseDoc = await expenseRef.get();
+    final expenseData = expenseDoc.data();
+
+    await expenseRef.delete();
+
+    await _activityService.addActivity(
+      groupId: groupId,
+      type: ActivityType.expenseDeleted,
+      expenseId: expenseId,
+      title: expenseData?['title'] as String?,
+      amount: (expenseData?['amount'] as num?)?.toDouble(),
+    );
   }
 
   Stream<List<ExpenseModel>> watchExpenses(String groupId) {

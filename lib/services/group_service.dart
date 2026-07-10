@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/activity_model.dart';
 import '../models/group_model.dart';
 import '../models/group_member.dart';
 import '../models/user_model.dart';
+import 'activity_service.dart';
 import 'invitation_service.dart';
 
 enum AddMemberResult {
@@ -16,6 +18,7 @@ class GroupService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final InvitationService _invitationService = InvitationService();
+  final ActivityService _activityService = ActivityService();
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
@@ -28,7 +31,7 @@ class GroupService {
       throw Exception('Utilisateur non connecté');
     }
 
-        final groupDoc = _firestore.collection('groups').doc();
+    final groupDoc = _firestore.collection('groups').doc();
 
     final group = GroupModel(
       id: groupDoc.id,
@@ -47,6 +50,12 @@ class GroupService {
         role: GroupRole.owner,
         joinedAt: DateTime.now(),
       ).toMap(),
+    );
+
+    await _activityService.addActivity(
+      groupId: groupDoc.id,
+      type: ActivityType.groupCreated,
+      title: name.trim(),
     );
   }
 
@@ -88,6 +97,12 @@ class GroupService {
     await _firestore.collection('groups').doc(groupId).update({
       'name': newName.trim(),
     });
+
+    await _activityService.addActivity(
+      groupId: groupId,
+      type: ActivityType.groupRenamed,
+      title: newName.trim(),
+    );
   }
 
   Future<AddMemberResult> addMemberByEmail(
@@ -109,7 +124,7 @@ class GroupService {
     final normalizedEmail = email.trim().toLowerCase();
 
     final groupDoc = await _firestore.collection('groups').doc(groupId).get();
-    
+
     final userSnapshot = await _firestore
         .collection('users')
         .where('email', isEqualTo: normalizedEmail)
@@ -126,7 +141,8 @@ class GroupService {
       return AddMemberResult.invited;
     }
 
-    final newMemberId = userSnapshot.docs.first.id;
+    final newMemberDoc = userSnapshot.docs.first;
+    final newMemberId = newMemberDoc.id;
 
     final members = List<String>.from(
       groupDoc.data()?['members'] ?? [],
@@ -139,6 +155,34 @@ class GroupService {
     await _firestore.collection('groups').doc(groupId).update({
       'members': FieldValue.arrayUnion([newMemberId]),
     });
+
+    await _firestore
+        .collection('groups')
+        .doc(groupId)
+        .collection('members')
+        .doc(newMemberId)
+        .set(
+          GroupMember(
+            uid: newMemberId,
+            role: GroupRole.member,
+            joinedAt: DateTime.now(),
+          ).toMap(),
+          SetOptions(merge: true),
+        );
+
+    final newMemberData = newMemberDoc.data();
+    final newMemberName =
+        newMemberData['displayName'] as String? ??
+        newMemberData['name'] as String? ??
+        newMemberData['email'] as String? ??
+        normalizedEmail;
+
+    await _activityService.addActivity(
+      groupId: groupId,
+      type: ActivityType.memberAdded,
+      targetUserId: newMemberId,
+      targetUserName: newMemberName,
+    );
 
     return AddMemberResult.added;
   }
@@ -219,6 +263,8 @@ class GroupService {
   Future<void> deleteGroup(String groupId) async {
     await _deleteSubcollection(groupId, 'expenses');
     await _deleteSubcollection(groupId, 'repayments');
+    await _deleteSubcollection(groupId, 'activities');
+    await _deleteSubcollection(groupId, 'members');
 
     await _firestore.collection('groups').doc(groupId).delete();
   }
@@ -232,6 +278,10 @@ class GroupService {
         .doc(groupId)
         .collection(subcollectionName)
         .get();
+
+    if (snapshot.docs.isEmpty) {
+      return;
+    }
 
     final batch = _firestore.batch();
 

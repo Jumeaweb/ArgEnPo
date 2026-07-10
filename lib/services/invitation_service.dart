@@ -1,14 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/activity_model.dart';
 import '../models/group_member.dart';
 import '../models/invitation_model.dart';
+import 'activity_service.dart';
 import 'notification_service.dart';
 
 class InvitationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final NotificationService _notificationService = NotificationService();
+  final ActivityService _activityService = ActivityService();
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
@@ -67,6 +70,14 @@ class InvitationService {
     );
 
     await invitationRef.set(invitation.toMap());
+
+    await _activityService.addActivity(
+      groupId: groupId,
+      type: ActivityType.invitationSent,
+      targetUserId: invitedUserId,
+      targetUserName: normalizedEmail,
+      invitationId: invitationRef.id,
+    );
 
     if (invitedUserId != null && invitedUserId.isNotEmpty) {
       await _notificationService.createInvitationNotification(
@@ -178,7 +189,8 @@ class InvitationService {
   }
 
   Future<void> acceptInvitation(InvitationModel invitation) async {
-    final userId = _currentUserId;
+    final user = _auth.currentUser;
+    final userId = user?.uid;
 
     if (userId == null) {
       throw Exception('Utilisateur non connecté');
@@ -239,6 +251,16 @@ class InvitationService {
       });
     });
 
+    await _activityService.addActivity(
+      groupId: invitation.groupId,
+      type: ActivityType.invitationAccepted,
+      userId: userId,
+      userName: user?.displayName ?? user?.email ?? invitation.email,
+      userPhotoUrl: user?.photoURL,
+      invitationId: invitation.id,
+      title: invitation.groupName,
+    );
+
     await _notificationService.markInvitationNotificationAsRead(
       invitationId: invitation.id,
       userId: userId,
@@ -246,11 +268,35 @@ class InvitationService {
   }
 
   Future<void> declineInvitation(String invitationId) async {
-    final userId = _currentUserId;
+    final user = _auth.currentUser;
+    final userId = user?.uid;
 
-    await _firestore.collection('invitations').doc(invitationId).update({
+    final invitationRef =
+        _firestore.collection('invitations').doc(invitationId);
+    final invitationDoc = await invitationRef.get();
+    final invitationData = invitationDoc.data();
+
+    await invitationRef.update({
       'status': 'declined',
     });
+
+    final groupId = invitationData?['groupId'] as String?;
+
+    if (groupId != null && groupId.isNotEmpty && userId != null) {
+      await _activityService.addActivity(
+        groupId: groupId,
+        type: ActivityType.invitationDeclined,
+        userId: userId,
+        userName:
+            user?.displayName ??
+            user?.email ??
+            invitationData?['email'] as String? ??
+            'Utilisateur',
+        userPhotoUrl: user?.photoURL,
+        invitationId: invitationId,
+        title: invitationData?['groupName'] as String?,
+      );
+    }
 
     if (userId != null && userId.isNotEmpty) {
       await _notificationService.markInvitationNotificationAsRead(

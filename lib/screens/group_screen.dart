@@ -17,6 +17,7 @@ import '../constants/constants.dart';
 import '../widgets/widgets.dart';
 import '../widgets/member_list.dart';
 
+import 'activity_screen.dart';
 import 'add_expense_screen.dart';
 import 'edit_expense_screen.dart';
 
@@ -240,6 +241,20 @@ class _GroupScreenState extends State<GroupScreen> {
               return IconButton(
                 icon: const Icon(Icons.person_add),
                 onPressed: _addMember,
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Historique des activités',
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ActivityScreen(
+                    groupId: widget.groupId,
+                  ),
+                ),
               );
             },
           ),
