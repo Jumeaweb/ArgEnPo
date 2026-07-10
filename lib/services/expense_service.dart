@@ -1,19 +1,31 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/expense_model.dart';
+import 'notification_service.dart';
 
 class ExpenseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
-  Future<void> addExpense(dynamic groupIdOrExpense, [ExpenseModel? expense]) async {
+  Future<void> addExpense(
+    dynamic groupIdOrExpense, [
+    ExpenseModel? expense,
+  ]) async {
     final ExpenseModel finalExpense =
         expense ?? groupIdOrExpense as ExpenseModel;
 
-    await _firestore
+    final expenseRef = _firestore
         .collection('groups')
         .doc(finalExpense.groupId)
         .collection('expenses')
-        .add(finalExpense.toMap());
+        .doc();
+
+    await expenseRef.set(finalExpense.toMap());
+
+    await _notificationService.createExpenseNotifications(
+      expenseId: expenseRef.id,
+      expense: finalExpense,
+    );
   }
 
   Future<void> updateExpense(

@@ -28,6 +28,7 @@ class AuthService {
       uid: refreshedUser.uid,
       name: refreshedUser.displayName ?? '',
       email: refreshedUser.email ?? '',
+      photoUrl: refreshedUser.photoURL,
     );
 
     await _invitationService.linkPendingInvitationsForCurrentUser();

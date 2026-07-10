@@ -6,6 +6,7 @@ import '../models/invitation_model.dart';
 import '../services/expense_service.dart';
 import '../services/group_service.dart';
 import '../services/invitation_service.dart';
+import '../services/notification_service.dart';
 
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
@@ -14,6 +15,7 @@ import 'create_group_screen.dart';
 import 'group_screen.dart';
 import 'invitations_screen.dart';
 import 'login_screen.dart';
+import 'notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final GroupService _groupService = GroupService();
   final ExpenseService _expenseService = ExpenseService();
   final InvitationService _invitationService = InvitationService();
+  final NotificationService _notificationService = NotificationService();
 
   List<GroupModel> groups = [];
   bool _hasCheckedInvitations = false;
@@ -104,6 +107,15 @@ class _HomeScreenState extends State<HomeScreen> {
     loadGroups();
   }
 
+  Future<void> _openNotificationsScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const NotificationsScreen(),
+      ),
+    );
+  }
+
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
 
@@ -124,42 +136,72 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, snapshot) {
         final invitationCount = snapshot.data?.length ?? 0;
 
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.mail_outline),
-              tooltip: 'Invitations reçues',
-              onPressed: _openInvitationsScreen,
-            ),
-            if (invitationCount > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 18,
-                    minHeight: 18,
-                  ),
-                  child: Text(
-                    invitationCount > 9 ? '9+' : '$invitationCount',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+        return _buildBadgedIconButton(
+          icon: Icons.mail_outline,
+          tooltip: 'Invitations reçues',
+          count: invitationCount,
+          onPressed: _openInvitationsScreen,
         );
       },
+    );
+  }
+
+  Widget _buildNotificationsButton() {
+    return StreamBuilder<int>(
+      stream: _notificationService.watchUnreadCount(),
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.data ?? 0;
+
+        return _buildBadgedIconButton(
+          icon: Icons.notifications_none,
+          tooltip: 'Notifications',
+          count: unreadCount,
+          onPressed: _openNotificationsScreen,
+        );
+      },
+    );
+  }
+
+  Widget _buildBadgedIconButton({
+    required IconData icon,
+    required String tooltip,
+    required int count,
+    required VoidCallback onPressed,
+  }) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          icon: Icon(icon),
+          tooltip: tooltip,
+          onPressed: onPressed,
+        ),
+        if (count > 0)
+          Positioned(
+            right: 8,
+            top: 8,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 18,
+                minHeight: 18,
+              ),
+              child: Text(
+                count > 9 ? '9+' : '$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -176,6 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           _buildInvitationsButton(),
+          _buildNotificationsButton(),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Déconnexion',

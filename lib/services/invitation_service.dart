@@ -3,10 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/group_member.dart';
 import '../models/invitation_model.dart';
+import 'notification_service.dart';
 
 class InvitationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificationService _notificationService = NotificationService();
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
@@ -35,6 +37,20 @@ class InvitationService {
       throw Exception('Une invitation est déjà en attente pour cet email');
     }
 
+    final existingUser = await _firestore
+        .collection('users')
+        .where('email', isEqualTo: normalizedEmail)
+        .limit(1)
+        .get();
+
+    String? invitedUserId;
+
+    if (existingUser.docs.isNotEmpty) {
+      final userDoc = existingUser.docs.first;
+      final userData = userDoc.data();
+      invitedUserId = userData['uid'] as String? ?? userDoc.id;
+    }
+
     final invitationRef = _firestore.collection('invitations').doc();
 
     final invitation = InvitationModel(
@@ -42,7 +58,7 @@ class InvitationService {
       groupId: groupId,
       groupName: groupName,
       email: normalizedEmail,
-      invitedUserId: null,
+      invitedUserId: invitedUserId,
       invitedBy: user.uid,
       invitedByName: user.displayName ?? user.email ?? 'Utilisateur',
       status: 'pending',
@@ -51,6 +67,16 @@ class InvitationService {
     );
 
     await invitationRef.set(invitation.toMap());
+
+    if (invitedUserId != null && invitedUserId.isNotEmpty) {
+      await _notificationService.createInvitationNotification(
+        userId: invitedUserId,
+        invitationId: invitationRef.id,
+        groupId: groupId,
+        groupName: groupName,
+        invitedByName: invitation.invitedByName,
+      );
+    }
   }
 
   Future<void> linkPendingInvitationsForCurrentUser() async {
@@ -77,19 +103,35 @@ class InvitationService {
     }
 
     final batch = _firestore.batch();
+    var hasUpdates = false;
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
       final currentInvitedUserId = data['invitedUserId'];
 
       if (currentInvitedUserId == null || currentInvitedUserId == '') {
+        hasUpdates = true;
         batch.update(doc.reference, {
           'invitedUserId': user.uid,
         });
       }
     }
 
-    await batch.commit();
+    if (hasUpdates) {
+      await batch.commit();
+    }
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      await _notificationService.createInvitationNotification(
+        userId: user.uid,
+        invitationId: doc.id,
+        groupId: data['groupId'] as String? ?? '',
+        groupName: data['groupName'] as String? ?? 'Groupe',
+        invitedByName: data['invitedByName'] as String? ?? 'Un utilisateur',
+      );
+    }
   }
 
   Stream<List<InvitationModel>> watchPendingInvitationsForCurrentUser() {
@@ -196,11 +238,25 @@ class InvitationService {
         'acceptedAt': FieldValue.serverTimestamp(),
       });
     });
+
+    await _notificationService.markInvitationNotificationAsRead(
+      invitationId: invitation.id,
+      userId: userId,
+    );
   }
 
   Future<void> declineInvitation(String invitationId) async {
+    final userId = _currentUserId;
+
     await _firestore.collection('invitations').doc(invitationId).update({
       'status': 'declined',
     });
+
+    if (userId != null && userId.isNotEmpty) {
+      await _notificationService.markInvitationNotificationAsRead(
+        invitationId: invitationId,
+        userId: userId,
+      );
+    }
   }
 }

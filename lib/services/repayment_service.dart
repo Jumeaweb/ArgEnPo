@@ -1,19 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/repayment_model.dart';
+import 'notification_service.dart';
 
 class RepaymentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
   Future<void> addRepayment(
     String groupId,
     RepaymentModel repayment,
   ) async {
-    await _firestore
+    final repaymentRef = _firestore
         .collection('groups')
         .doc(groupId)
         .collection('repayments')
-        .add(repayment.toMap());
+        .doc();
+
+    await repaymentRef.set(repayment.toMap());
+
+    await _notificationService.createRepaymentNotifications(
+      groupId: groupId,
+      repaymentId: repaymentRef.id,
+      repayment: repayment,
+    );
   }
 
   Future<List<RepaymentModel>> getRepayments(
@@ -26,10 +36,12 @@ class RepaymentService {
         .get();
 
     return snapshot.docs
-        .map((doc) => RepaymentModel.fromMap(
-              doc.data(),
-              doc.id,
-            ))
+        .map(
+          (doc) => RepaymentModel.fromMap(
+            doc.data(),
+            doc.id,
+          ),
+        )
         .toList();
   }
 
@@ -44,10 +56,12 @@ class RepaymentService {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => RepaymentModel.fromMap(
-                    doc.data(),
-                    doc.id,
-                  ))
+              .map(
+                (doc) => RepaymentModel.fromMap(
+                  doc.data(),
+                  doc.id,
+                ),
+              )
               .toList(),
         );
   }

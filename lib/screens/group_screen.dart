@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/expense_model.dart';
@@ -38,6 +41,41 @@ class _GroupScreenState extends State<GroupScreen> {
   final DebtService _debtService = DebtService();
   final UserService _userService = UserService();
   final RepaymentService _repaymentService = RepaymentService();
+
+  late List<String> _currentMembers;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _groupSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _currentMembers = List<String>.from(widget.members);
+
+    _groupSubscription = FirebaseFirestore.instance
+        .collection('groups')
+        .doc(widget.groupId)
+        .snapshots()
+        .listen((snapshot) {
+      final data = snapshot.data();
+
+      if (!mounted || data == null) {
+        return;
+      }
+
+      final members = List<String>.from(data['members'] ?? const <String>[]);
+
+      setState(() {
+        _currentMembers = members;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _groupSubscription?.cancel();
+    super.dispose();
+  }
 
   String _categoryIcon(String category) {
     return ExpenseCategoryIcons.get(category);
@@ -224,7 +262,7 @@ class _GroupScreenState extends State<GroupScreen> {
             MaterialPageRoute(
               builder: (_) => AddExpenseScreen(
                 groupId: widget.groupId,
-                members: widget.members,
+                members: _currentMembers,
               ),
             ),
           );
@@ -249,7 +287,8 @@ class _GroupScreenState extends State<GroupScreen> {
           return StreamBuilder<List<RepaymentModel>>(
             stream: _repaymentService.watchRepayments(widget.groupId),
             builder: (context, repaymentSnapshot) {
-              if (repaymentSnapshot.connectionState == ConnectionState.waiting) {
+              if (repaymentSnapshot.connectionState ==
+                  ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
@@ -263,26 +302,32 @@ class _GroupScreenState extends State<GroupScreen> {
 
               final rawBalances = _debtService.calculateBalances(expenses);
 
-              final balances = _debtService.applyRepayments(
-                rawBalances,
-                repayments,
+              final balances = Map<String, double>.from(
+                _debtService.applyRepayments(
+                  rawBalances,
+                  repayments,
+                ),
               );
+
+              for (final memberId in _currentMembers) {
+                balances.putIfAbsent(memberId, () => 0.0);
+              }
 
               final settlements = _debtService.calculateSettlements(balances);
 
               final totalAmount = expenses.fold<double>(
                 0,
-                (sum, e) => sum + e.amount,
+                (total, e) => total + e.amount,
               );
 
               final remainingToSettle = settlements.fold<double>(
                 0,
-                (sum, s) => sum + s.amount,
+                (total, s) => total + s.amount,
               );
 
               final totalRepaid = repayments.fold<double>(
                 0,
-                (sum, r) => sum + r.amount,
+                (total, r) => total + r.amount,
               );
               
               final sortedExpenses = [...expenses]
@@ -327,7 +372,9 @@ class _GroupScreenState extends State<GroupScreen> {
                         Container(
                           height: 70,
                           width: 1,
-                          color: AppColors.textSecondary.withValues(alpha: 0.25),
+                          color: AppColors.textSecondary.withValues(
+                            alpha: 0.25,
+                          ),
                         ),
                         Expanded(
                           child: Column(
@@ -355,7 +402,9 @@ class _GroupScreenState extends State<GroupScreen> {
                         Container(
                           height: 70,
                           width: 1,
-                          color: AppColors.textSecondary.withValues(alpha: 0.25),
+                          color: AppColors.textSecondary.withValues(
+                            alpha: 0.25,
+                          ),
                         ),
                         Expanded(
                           child: Column(
