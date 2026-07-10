@@ -9,6 +9,30 @@ class AuthService {
   final UserService _userService = UserService();
   final InvitationService _invitationService = InvitationService();
 
+  Future<void> _synchronizeCurrentUser() async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception('Utilisateur non connecté');
+    }
+
+    await user.reload();
+
+    final refreshedUser = _auth.currentUser;
+
+    if (refreshedUser == null) {
+      throw Exception('Impossible de récupérer l’utilisateur connecté');
+    }
+
+    await _userService.createOrUpdateUser(
+      uid: refreshedUser.uid,
+      name: refreshedUser.displayName ?? '',
+      email: refreshedUser.email ?? '',
+    );
+
+    await _invitationService.linkPendingInvitationsForCurrentUser();
+  }
+
   Future<UserCredential> signInWithGoogle() async {
     final GoogleSignInAccount? googleUser =
         await GoogleSignIn().signIn();
@@ -27,15 +51,7 @@ class AuthService {
 
     final result = await _auth.signInWithCredential(credential);
 
-    final user = result.user!;
-
-    await _userService.createUser(
-      uid: user.uid,
-      name: user.displayName ?? '',
-      email: user.email ?? '',
-    );
-
-    await _invitationService.linkPendingInvitationsForCurrentUser();
+    await _synchronizeCurrentUser();
 
     return result;
   }
@@ -49,7 +65,7 @@ class AuthService {
       password: password,
     );
 
-    await _invitationService.linkPendingInvitationsForCurrentUser();
+    await _synchronizeCurrentUser();
 
     return result;
   }
@@ -59,29 +75,35 @@ class AuthService {
     required String password,
     required String name,
   }) async {
+    final normalizedName = name.trim();
+    final normalizedEmail = email.trim().toLowerCase();
+
     final result = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
+      email: normalizedEmail,
       password: password,
     );
 
-    final user = result.user!;
+    final user = result.user;
 
-    await user.updateDisplayName(name.trim());
+    if (user == null) {
+      throw Exception('Impossible de créer le compte utilisateur');
+    }
 
-    await _userService.createUser(
-      uid: user.uid,
-      name: name.trim(),
-      email: email.trim(),
-    );
+    await user.updateDisplayName(normalizedName);
+    await user.reload();
 
-    await _invitationService.linkPendingInvitationsForCurrentUser();
+    await _synchronizeCurrentUser();
 
     return result;
   }
 
+  Future<void> synchronizeCurrentUser() async {
+    await _synchronizeCurrentUser();
+  }
+
   Future<void> resetPassword(String email) async {
     await _auth.sendPasswordResetEmail(
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
     );
   }
 
