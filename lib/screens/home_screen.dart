@@ -9,7 +9,7 @@ import '../services/invitation_service.dart';
 import '../services/notification_service.dart';
 
 import '../theme/theme.dart';
-import '../widgets/widgets.dart';
+import '../widgets/design_system/design_system.dart' hide AppColors;
 
 import 'create_group_screen.dart';
 import 'group_screen.dart';
@@ -116,6 +116,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openCreateGroupScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CreateGroupScreen(),
+      ),
+    );
+
+    loadGroups();
+  }
+
+  Future<void> _openGroup(GroupModel group) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GroupScreen(
+          groupId: group.id,
+          groupName: group.name,
+          members: group.members,
+        ),
+      ),
+    );
+
+    loadGroups();
+  }
+
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
 
@@ -130,17 +156,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _formatGroupName(String name) {
+    final trimmedName = name.trim();
+
+    if (trimmedName.isEmpty) {
+      return 'Groupe';
+    }
+
+    return '${trimmedName[0].toUpperCase()}${trimmedName.substring(1)}';
+  }
+
   Widget _buildInvitationsButton() {
     return StreamBuilder<List<InvitationModel>>(
       stream: _invitationService.watchPendingInvitationsForCurrentUser(),
       builder: (context, snapshot) {
         final invitationCount = snapshot.data?.length ?? 0;
 
-        return _buildBadgedIconButton(
-          icon: Icons.mail_outline,
-          tooltip: 'Invitations reçues',
+        return AppBadge(
           count: invitationCount,
-          onPressed: _openInvitationsScreen,
+          top: 2,
+          right: 2,
+          child: IconButton(
+            icon: const Icon(AppIcons.invitation),
+            tooltip: 'Invitations reçues',
+            onPressed: _openInvitationsScreen,
+          ),
         );
       },
     );
@@ -152,56 +192,125 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, snapshot) {
         final unreadCount = snapshot.data ?? 0;
 
-        return _buildBadgedIconButton(
-          icon: Icons.notifications_none,
-          tooltip: 'Notifications',
+        return AppBadge(
           count: unreadCount,
-          onPressed: _openNotificationsScreen,
+          top: 2,
+          right: 2,
+          child: IconButton(
+            icon: const Icon(AppIcons.notifications),
+            tooltip: 'Notifications',
+            onPressed: _openNotificationsScreen,
+          ),
         );
       },
     );
   }
 
-  Widget _buildBadgedIconButton({
-    required IconData icon,
-    required String tooltip,
-    required int count,
-    required VoidCallback onPressed,
-  }) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        IconButton(
-          icon: Icon(icon),
-          tooltip: tooltip,
-          onPressed: onPressed,
-        ),
-        if (count > 0)
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
+  Widget _buildGroupCard(GroupModel group) {
+    return FutureBuilder<List<Object>>(
+      future: Future.wait<Object>([
+        _expenseService.getExpenseCount(group.id),
+        _expenseService.getTotalAmount(group.id),
+      ]),
+      builder: (context, snapshot) {
+        final expenseCount =
+            snapshot.hasData ? snapshot.data![0] as int : 0;
+
+        final totalAmount =
+            snapshot.hasData ? snapshot.data![1] as double : 0.0;
+
+        final memberLabel = group.members.length == 1
+            ? '1 ami'
+            : '${group.members.length} amis';
+
+        final expenseLabel = expenseCount == 1
+            ? '1 dépense'
+            : '$expenseCount dépenses';
+
+        final formattedGroupName = _formatGroupName(group.name);
+
+        return AppCard(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          onTap: () => _openGroup(group),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  AppAvatar(
+                    name: formattedGroupName,
+                    maxInitials: 1,
+                    radius: AppDimensions.iconCircleRadius,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.textLight,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: AppSectionTitle(
+                      title: formattedGroupName,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${totalAmount.toStringAsFixed(2)} €',
+                        style: AppTextStyles.amount.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      const Icon(
+                        AppIcons.forward,
+                        color: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              constraints: const BoxConstraints(
-                minWidth: 18,
-                minHeight: 18,
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  AppStatusChip(
+                    label: memberLabel,
+                    icon: AppIcons.member,
+                    compact: true,
+                  ),
+                  AppStatusChip.info(
+                    label: expenseLabel,
+                    icon: AppIcons.expense,
+                    compact: true,
+                  ),
+                ],
               ),
-              child: Text(
-                count > 9 ? '9+' : '$count',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+            ],
           ),
-      ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return AppEmptyState(
+      title: 'Aucun groupe pour le moment',
+      message:
+          'Créez votre premier groupe pour commencer à partager vos dépenses.',
+      icon: AppIcons.groups,
+      action: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.textLight,
+        ),
+        onPressed: _openCreateGroupScreen,
+        icon: const Icon(AppIcons.addGroup),
+        label: const Text('Créer un groupe'),
+      ),
     );
   }
 
@@ -220,7 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildInvitationsButton(),
           _buildNotificationsButton(),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(AppIcons.logout),
             tooltip: 'Déconnexion',
             onPressed: _signOut,
           ),
@@ -229,117 +338,31 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textLight,
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const CreateGroupScreen(),
-            ),
-          );
-
-          loadGroups();
-        },
-        child: const Icon(Icons.add, size: 32),
+        onPressed: _openCreateGroupScreen,
+        child: const Icon(
+          AppIcons.add,
+          size: 32,
+        ),
       ),
       body: groups.isEmpty
-          ? Center(
-              child: Text(
-                'Aucun groupe pour le moment',
-                style: AppTextStyles.subtitle,
+          ? _buildEmptyState()
+          : RefreshIndicator(
+              onRefresh: loadGroups,
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(
+                  AppDimensions.padding,
+                ),
+                itemCount: groups.length,
+                separatorBuilder: (context, index) {
+                  return const SizedBox(
+                    height: AppSpacing.md,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  return _buildGroupCard(groups[index]);
+                },
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(AppDimensions.padding),
-              itemCount: groups.length,
-              itemBuilder: (context, index) {
-                final g = groups[index];
-
-                return FutureBuilder<List<Object>>(
-                  future: Future.wait<Object>([
-                    _expenseService.getExpenseCount(g.id),
-                    _expenseService.getTotalAmount(g.id),
-                  ]),
-                  builder: (context, snapshot) {
-                    final expenseCount =
-                        snapshot.hasData ? snapshot.data![0] as int : 0;
-
-                    final totalAmount =
-                        snapshot.hasData ? snapshot.data![1] as double : 0.0;
-
-                    return AppCard(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => GroupScreen(
-                              groupId: g.id,
-                              groupName: g.name,
-                              members: g.members,
-                            ),
-                          ),
-                        );
-
-                        loadGroups();
-                      },
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: AppDimensions.iconCircleRadius,
-                            backgroundColor: AppColors.primary,
-                            child: Text(
-                              g.name.isNotEmpty
-                                  ? g.name[0].toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                color: AppColors.textLight,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  g.name,
-                                  style: AppTextStyles.title,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${g.members.length} amis • $expenseCount dépenses',
-                                  style: AppTextStyles.subtitle,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${totalAmount.toStringAsFixed(2)} €',
-                                style: AppTextStyles.amount,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Total',
-                                style: AppTextStyles.subtitle,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
             ),
     );
   }
