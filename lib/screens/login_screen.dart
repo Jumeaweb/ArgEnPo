@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../services/auth_service.dart';
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
 
@@ -15,8 +14,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final AuthService _authService = AuthService();
-
   String appVersion = '';
 
   @override
@@ -35,18 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  Future<void> _loginGoogle(BuildContext context) async {
-    try {
-      await _authService.signInWithGoogle();
-    } catch (e) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFFE8F5E9),
+              AppColors.lightGreen,
               AppColors.background,
             ],
             begin: Alignment.topCenter,
@@ -85,31 +70,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
               const SizedBox(height: 40),
-
-              AppButton(
-                text: 'Continuer avec Google',
-                icon: Icons.login,
-                onPressed: () => _loginGoogle(context),
-              ),
-
-              const SizedBox(height: 12),
-
-              AppButton(
-                text: 'Continuer avec Apple',
-                icon: Icons.apple,
-                backgroundColor: AppColors.textPrimary,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Connexion Apple bientôt disponible',
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 12),
 
               AppButton(
                 text: 'Continuer avec Email',

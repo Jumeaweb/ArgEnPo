@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'app_colors.dart';
+
 class AppTheme {
-  static const primaryGreen = Color(0xFF1B5E20);
-  static const lightGreen = Color(0xFFE8F5E9);
-  static const accentGreen = Color(0xFF2E7D32);
+  static const primaryGreen = AppColors.primary;
+  static const lightGreen = AppColors.lightGreen;
+  static const accentGreen = AppColors.secondary;
 
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
@@ -14,14 +16,14 @@ class AppTheme {
 
     appBarTheme: const AppBarTheme(
       backgroundColor: primaryGreen,
-      foregroundColor: Colors.white,
+      foregroundColor: AppColors.textLight,
       centerTitle: false,
     ),
 
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: accentGreen,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.textLight,
       ),
     ),
 

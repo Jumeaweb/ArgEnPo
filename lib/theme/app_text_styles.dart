@@ -53,6 +53,22 @@ static const summaryAmount = TextStyle(
   fontSize: 18,
   fontWeight: FontWeight.bold,
 );
+static const badge = TextStyle(
+  fontSize: AppDimensions.badgeFontSize,
+  fontWeight: FontWeight.bold,
+  color: AppColors.textLight,
+);
+static const buttonSmall = TextStyle(
+  fontSize: AppDimensions.badgeFontSize,
+);
+static const categoryIcon = TextStyle(
+  fontSize: AppDimensions.categoryIconSize,
+);
+static const avatarInitial = TextStyle(
+  fontSize: AppDimensions.avatarFontSize,
+  fontWeight: FontWeight.bold,
+  color: AppColors.textLight,
+);
 /*
   static const appBarTitle = TextStyle(
     fontSize: AppDimensions.appBarTitleSize,

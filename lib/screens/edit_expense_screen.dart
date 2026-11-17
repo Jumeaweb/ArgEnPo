@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/expense_model.dart';
 import '../services/expense_service.dart';
+import '../services/user_service.dart';
 
 import '../theme/theme.dart';
 import '../constants/constants.dart';
@@ -10,11 +11,13 @@ import '../widgets/widgets.dart';
 class EditExpenseScreen extends StatefulWidget {
   final String groupId;
   final ExpenseModel expense;
+  final List<String> members;
 
   const EditExpenseScreen({
     super.key,
     required this.groupId,
     required this.expense,
+    this.members = const [],
   });
 
   @override
@@ -32,6 +35,10 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
   final List<String> categories =
       List.from(ExpenseCategories.all);
 
+  final UserService _userService = UserService();
+
+  late List<String> selectedParticipants;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +54,20 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
     selectedCategory = categories.contains(widget.expense.category)
         ? widget.expense.category
         : 'Autre';
+
+    selectedParticipants = List.from(widget.expense.participants);
+  }
+
+  void toggleParticipant(String uid, bool? value) {
+    setState(() {
+      if (value == true) {
+        if (!selectedParticipants.contains(uid)) {
+          selectedParticipants.add(uid);
+        }
+      } else {
+        selectedParticipants.remove(uid);
+      }
+    });
   }
 
   Future<void> save() async {
@@ -58,12 +79,17 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
       return;
     }
 
+    if (selectedParticipants.isEmpty) {
+      _showMessage('Sélectionne au moins un participant');
+      return;
+    }
+
     final updatedExpense = ExpenseModel(
       id: widget.expense.id,
       title: titleController.text.trim(),
       amount: amount,
       paidBy: widget.expense.paidBy,
-      participants: widget.expense.participants,
+      participants: selectedParticipants,
       category: selectedCategory,
       createdAt: widget.expense.createdAt,
     );
@@ -185,6 +211,53 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
                     setState(() {
                       selectedCategory = value!;
                     });
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
+                const AppSectionTitle('Participants'),
+
+                FutureBuilder<List<Map<String, String>>>(
+                  future: Future.wait(
+                    widget.members.map((uid) async {
+                      final name =
+                          await _userService.getUserDisplayName(uid);
+
+                      return {
+                        'uid': uid,
+                        'name': name,
+                      };
+                    }),
+                  ),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: Padding(
+                          padding:
+                              EdgeInsets.all(AppDimensions.paddingLarge),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      children: snapshot.data!.map((member) {
+                        final uid = member['uid']!;
+                        final name = member['name']!;
+
+                        return CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: selectedParticipants.contains(uid),
+                          title: Text(
+                            name,
+                            style: AppTextStyles.subtitle,
+                          ),
+                          onChanged: (value) =>
+                              toggleParticipant(uid, value),
+                        );
+                      }).toList(),
+                    );
                   },
                 ),
 

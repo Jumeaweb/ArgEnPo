@@ -15,10 +15,10 @@ class RepaymentModel {
 
   Map<String, dynamic> toMap() {
     return {
-      'from': from,
-      'to': to,
+      'from_user': from,
+      'to_user': to,
       'amount': amount,
-      'createdAt': createdAt.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
     };
   }
 
@@ -28,10 +28,10 @@ class RepaymentModel {
   ) {
     return RepaymentModel(
       id: id,
-      from: map['from'],
-      to: map['to'],
+      from: map['from_user'],
+      to: map['to_user'],
       amount: (map['amount'] as num).toDouble(),
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: DateTime.parse(map['created_at']),
     );
   }
 }

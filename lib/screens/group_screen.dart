@@ -498,7 +498,7 @@ class _GroupScreenState extends State<GroupScreen> {
                                     icon: const Icon(Icons.payments, size: 12),
                                     label: const Text(
                                       'Rembourser',
-                                      style: TextStyle(fontSize: 11),
+                                      style: AppTextStyles.buttonSmall,
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.secondary,
@@ -560,34 +560,9 @@ class _GroupScreenState extends State<GroupScreen> {
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check,
-                                color: AppColors.textLight,
-                                size: 12,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Remboursé',
-                                style: TextStyle(
-                                  color: AppColors.textLight,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                        const AppBadge(
+                          text: 'Remboursé',
+                          icon: Icons.check,
                         ),
 
                         const SizedBox(width: 12),
@@ -731,6 +706,7 @@ class _GroupScreenState extends State<GroupScreen> {
                         builder: (_) => EditExpenseScreen(
                           groupId: widget.groupId,
                           expense: expense,
+                          members: widget.members,
                         ),
                       ),
                     );
@@ -743,7 +719,7 @@ class _GroupScreenState extends State<GroupScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: Text(
                       _categoryIcon(expense.category),
-                      style: const TextStyle(fontSize: 22),
+                      style: AppTextStyles.categoryIcon,
                     ),
                     title: Text(
                       expense.title,

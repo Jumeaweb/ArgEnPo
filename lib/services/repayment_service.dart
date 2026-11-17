@@ -1,35 +1,30 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/repayment_model.dart';
 
 class RepaymentService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _db = Supabase.instance.client;
 
   Future<void> addRepayment(
     String groupId,
     RepaymentModel repayment,
   ) async {
-    await _firestore
-        .collection('groups')
-        .doc(groupId)
-        .collection('repayments')
-        .add(repayment.toMap());
+    await _db.from('repayments').insert({
+      'group_id': groupId,
+      ...repayment.toMap(),
+    });
   }
 
   Future<List<RepaymentModel>> getRepayments(
     String groupId,
   ) async {
-    final snapshot = await _firestore
-        .collection('groups')
-        .doc(groupId)
-        .collection('repayments')
-        .get();
+    final rows = await _db
+        .from('repayments')
+        .select()
+        .eq('group_id', groupId);
 
-    return snapshot.docs
-        .map((doc) => RepaymentModel.fromMap(
-              doc.data(),
-              doc.id,
-            ))
+    return rows
+        .map((row) => RepaymentModel.fromMap(row, row['id'] as String))
         .toList();
   }
 
@@ -37,11 +32,6 @@ class RepaymentService {
     String groupId,
     String repaymentId,
   ) async {
-    await _firestore
-        .collection('groups')
-        .doc(groupId)
-        .collection('repayments')
-        .doc(repaymentId)
-        .delete();
+    await _db.from('repayments').delete().eq('id', repaymentId);
   }
 }

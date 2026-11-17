@@ -1,34 +1,35 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final SupabaseClient _db = Supabase.instance.client;
+
+  final Map<String, String> _cache = {};
 
   Future<void> createUser({
     required String uid,
     required String name,
     required String email,
   }) async {
-    await _db.collection('users').doc(uid).set({
-      'uid': uid,
-      'name': name,
+    await _db.from('profiles').upsert({
+      'id': uid,
       'email': email,
-      'createdAt': Timestamp.now(),
-    }, SetOptions(merge: true));
+      'display_name': name,
+    });
   }
 
-final Map<String, String> _cache = {};
+  Future<String> getUserDisplayName(String uid) async {
+    if (_cache.containsKey(uid)) return _cache[uid]!;
 
-Future<String> getUserDisplayName(String uid) async {
-  if (_cache.containsKey(uid)) return _cache[uid]!;
+    final row = await _db
+        .from('profiles')
+        .select('display_name')
+        .eq('id', uid)
+        .maybeSingle();
 
-  final doc = await _db.collection('users').doc(uid).get();
+    final name = row?['display_name'] ?? 'Utilisateur';
 
-  final name = doc.data()?['displayName']
-      ?? doc.data()?['name']
-      ?? 'Utilisateur';
+    _cache[uid] = name;
 
-  _cache[uid] = name;
-
-  return name;
-}
+    return name;
+  }
 }

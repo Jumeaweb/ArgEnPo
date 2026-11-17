@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/group_model.dart';
 import '../services/auth_service.dart';
@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> loadGroups() async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final uid = Supabase.instance.client.auth.currentUser!.id;
     final data = await _groupService.getUserGroups(uid);
 
     if (!mounted) return;
@@ -165,11 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               g.name.isNotEmpty
                                   ? g.name[0].toUpperCase()
                                   : '?',
-                              style: const TextStyle(
-                                color: AppColors.textLight,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: AppTextStyles.avatarInitial,
                             ),
                           ),
                           const SizedBox(width: 14),

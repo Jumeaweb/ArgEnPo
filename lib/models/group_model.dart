@@ -15,11 +15,10 @@ class GroupModel {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'name': name,
-      'createdBy': createdBy,
+      'created_by': createdBy,
       'members': members,
-      'createdAt': createdAt.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
     };
   }
 
@@ -27,9 +26,9 @@ class GroupModel {
     return GroupModel(
       id: id,
       name: map['name'] ?? '',
-      createdBy: map['createdBy'] ?? '',
+      createdBy: map['created_by'] ?? '',
       members: List<String>.from(map['members'] ?? []),
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: DateTime.parse(map['created_at']),
     );
   }
 }

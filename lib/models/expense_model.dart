@@ -21,9 +21,9 @@ class ExpenseModel {
     return {
       'title': title,
       'amount': amount,
-      'paidBy': paidBy,
+      'paid_by': paidBy,
       'participants': participants,
-      'createdAt': createdAt.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
       'category': category,
     };
   }
@@ -33,9 +33,9 @@ class ExpenseModel {
       id: id,
       title: map['title'],
       amount: (map['amount'] as num).toDouble(),
-      paidBy: map['paidBy'],
+      paidBy: map['paid_by'],
       participants: List<String>.from(map['participants']),
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: DateTime.parse(map['created_at']),
       category: map['category'] ?? 'Autre',
     );
   }

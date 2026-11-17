@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'firebase_options.dart';
+import 'config/supabase_config.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
@@ -10,40 +9,60 @@ import 'theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  if (!SupabaseConfig.isConfigured) {
+    runApp(const BonsAmisApp(missingConfig: true));
+    return;
+  }
+
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    publishableKey: SupabaseConfig.publishableKey,
   );
 
   runApp(const BonsAmisApp());
 }
 
 class BonsAmisApp extends StatelessWidget {
-  const BonsAmisApp({super.key});
+  final bool missingConfig;
+
+  const BonsAmisApp({super.key, this.missingConfig = false});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
-            return const Scaffold(
+      home: missingConfig
+          ? const Scaffold(
               body: Center(
-                child: CircularProgressIndicator(),
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Backend non configuré : complétez SUPABASE_URL et '
+                    'SUPABASE_ANON_KEY dans lib/config/supabase_config.dart',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ),
-            );
-          }
+            )
+          : StreamBuilder<AuthState>(
+              stream: Supabase.instance.client.auth.onAuthStateChange,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Scaffold(
+                    body: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
 
-          if (snapshot.data != null) {
-            return HomeScreen();
-          }
+                if (snapshot.data!.session != null) {
+                  return const HomeScreen();
+                }
 
-          return LoginScreen();
-        },
-      ),
+                return const LoginScreen();
+              },
+            ),
     );
   }
 }

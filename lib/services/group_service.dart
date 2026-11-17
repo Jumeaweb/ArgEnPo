@@ -1,55 +1,71 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/group_model.dart';
 
 class GroupService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  final String _collection = 'groups';
+  final SupabaseClient _db = Supabase.instance.client;
 
   Future<String> createGroup(GroupModel group) async {
-    final doc = await _firestore
-        .collection(_collection)
-        .add(group.toMap());
+    final row = await _db
+        .from('groups')
+        .insert({
+          'name': group.name,
+          'created_by': group.createdBy,
+          'members': group.members,
+          'created_at': group.createdAt.toIso8601String(),
+        })
+        .select('id')
+        .single();
 
-    return doc.id;
+    return row['id'] as String;
   }
 
   Future<List<GroupModel>> getUserGroups(String uid) async {
-    final snapshot = await _firestore
-        .collection(_collection)
-        .where('members', arrayContains: uid)
-        .get();
+    final rows = await _db
+        .from('groups')
+        .select()
+        .contains('members', [uid]);
 
-    return snapshot.docs
-        .map((doc) => GroupModel.fromMap(doc.data(), doc.id))
+    return rows
+        .map((row) => GroupModel.fromMap(row, row['id'] as String))
         .toList();
   }
 
   Future<void> addMember(String groupId, String uid) async {
-    await _firestore.collection(_collection).doc(groupId).update({
-      'members': FieldValue.arrayUnion([uid]),
-    });
+    final row = await _db
+        .from('groups')
+        .select('members')
+        .eq('id', groupId)
+        .single();
+
+    final members = List<String>.from(row['members'] as List);
+
+    if (members.contains(uid)) return;
+
+    members.add(uid);
+
+    await _db
+        .from('groups')
+        .update({'members': members})
+        .eq('id', groupId);
   }
 
   Future<bool> addMemberByEmail(
     String groupId,
     String email,
   ) async {
-    final userQuery = await _firestore
-        .collection('users')
-        .where('email', isEqualTo: email.trim())
-        .limit(1)
-        .get();
+    final result = await _db.rpc(
+      'find_profile_id_by_email',
+      params: {'search_email': email.trim()},
+    );
 
-    if (userQuery.docs.isEmpty) {
+    final uid = result as String?;
+
+    if (uid == null || uid.isEmpty) {
       return false;
     }
 
-    final uid = userQuery.docs.first.id;
-
-    await _firestore.collection(_collection).doc(groupId).update({
-      'members': FieldValue.arrayUnion([uid]),
-    });
+    await addMember(groupId, uid);
 
     return true;
   }
@@ -58,15 +74,13 @@ class GroupService {
     String groupId,
     String newName,
   ) async {
-    await _firestore.collection(_collection).doc(groupId).update({
-      'name': newName,
-    });
+    await _db
+        .from('groups')
+        .update({'name': newName})
+        .eq('id', groupId);
   }
 
   Future<void> deleteGroup(String groupId) async {
-    await _firestore
-        .collection(_collection)
-        .doc(groupId)
-        .delete();
+    await _db.from('groups').delete().eq('id', groupId);
   }
 }

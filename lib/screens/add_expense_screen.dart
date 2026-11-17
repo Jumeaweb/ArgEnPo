@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/expense_model.dart';
 import '../services/expense_service.dart';
@@ -50,7 +50,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Future<void> save() async {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = Supabase.instance.client.auth.currentUser!;
 
     final amountText = amountController.text.replaceAll(',', '.');
     final amount = double.tryParse(amountText);
@@ -69,7 +69,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       id: '',
       title: titleController.text.trim(),
       amount: amount,
-      paidBy: selectedPayer ?? user.uid,
+      paidBy: selectedPayer ?? user.id,
       participants: selectedParticipants,
       category: selectedCategory,
       createdAt: DateTime.now(),
@@ -215,7 +215,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     if (!snapshot.hasData) {
                       return const Center(
                         child: Padding(
-                          padding: EdgeInsets.all(20),
+                          padding: EdgeInsets.all(AppDimensions.paddingLarge),
                           child: CircularProgressIndicator(),
                         ),
                       );
