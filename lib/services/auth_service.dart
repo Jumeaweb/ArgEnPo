@@ -8,6 +8,8 @@ class AuthService {
 
   User? get currentUser => _client.auth.currentUser;
 
+  Session? get currentSession => _client.auth.currentSession;
+
   Stream<AuthState> get authStateChanges =>
       _client.auth.onAuthStateChange;
 

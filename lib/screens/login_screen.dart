@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
@@ -14,24 +13,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  String appVersion = '';
-
-  @override
-  void initState() {
-    super.initState();
-    loadVersion();
-  }
-
-  Future<void> loadVersion() async {
-    final info = await PackageInfo.fromPlatform();
-
-    if (!mounted) return;
-
-    setState(() {
-      appVersion = '${info.version}+${info.buildNumber}';
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,10 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(AppDimensions.padding),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              AppColors.lightGreen,
-              AppColors.background,
-            ],
+            colors: [AppColors.lightGreen, AppColors.background],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -54,10 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const Spacer(),
 
-              Image.asset(
-                'assets/images/logo_argenpo.png',
-                height: 260,
-              ),
+              Image.asset('assets/images/logo_argenpo.png', height: 260),
 
               const SizedBox(height: 12),
 
@@ -78,25 +53,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => const EmailLoginScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const EmailLoginScreen()),
                   );
                 },
               ),
 
               const Spacer(),
 
-              Text(
-                appVersion.isEmpty
-                    ? ''
-                    : 'Version $appVersion',
-                style: AppTextStyles.small.copyWith(
-                  color: AppColors.primary,
-                ),
-              ),
-
-              const SizedBox(height: 10),
+              const AppFooter(),
             ],
           ),
         ),

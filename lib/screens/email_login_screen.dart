@@ -4,6 +4,8 @@ import '../services/auth_service.dart';
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
 
+import 'home_screen.dart';
+
 class EmailLoginScreen extends StatefulWidget {
   const EmailLoginScreen({super.key});
 
@@ -20,6 +22,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
   final nameController = TextEditingController();
 
   bool createAccount = false;
+  bool obscurePassword = true;
 
   Future<void> submit() async {
     final email = emailController.text.trim();
@@ -55,8 +58,23 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
         );
       }
 
-      if (mounted) {
-        Navigator.pop(context);
+      if (!mounted) return;
+
+      final signedIn = _authService.currentSession != null;
+
+      if (signedIn) {
+        // Connexion réussie : on ouvre l'accueil en effaçant toute
+        // la pile de navigation (sinon on resterait sur la connexion).
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      } else {
+        // Création de compte : email de confirmation envoyé, pas de
+        // session tant que l'utilisateur n'a pas cliqué sur le lien.
+        _showMessage(
+          'Compte créé. Confirmez votre email avant de vous connecter.',
+        );
       }
     } catch (e) {
       _showMessage(e.toString());
@@ -148,10 +166,22 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
 
                 TextField(
                   controller: passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
                     labelText: 'Mot de passe',
-                    prefixIcon: Icon(Icons.lock_outline),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscurePassword = !obscurePassword;
+                        });
+                      },
+                    ),
                   ),
                 ),
 

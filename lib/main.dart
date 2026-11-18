@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
-import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -45,24 +44,7 @@ class BonsAmisApp extends StatelessWidget {
                 ),
               ),
             )
-          : StreamBuilder<AuthState>(
-              stream: Supabase.instance.client.auth.onAuthStateChange,
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Scaffold(
-                    body: Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                }
-
-                if (snapshot.data!.session != null) {
-                  return const HomeScreen();
-                }
-
-                return const LoginScreen();
-              },
-            ),
+          : const SplashScreen(),
     );
   }
 }
