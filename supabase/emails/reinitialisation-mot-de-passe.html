@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+  <body style="margin:0; padding:0; background-color:#F1FAF3; font-family:'Segoe UI', Helvetica, Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F1FAF3; padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:12px; padding:40px;">
+            <tr>
+              <td style="text-align:center; padding-bottom:24px;">
+                <h1 style="color:#1B5E20; margin:0; font-size:24px;">ArgEnPo</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align:center;">
+                <p style="color:#212121; font-size:16px; margin:0 0 8px;">Bonjour,</p>
+                <p style="color:#212121; font-size:16px; margin:0 0 24px;">
+                  Vous avez demandé la réinitialisation de votre mot de passe.
+                  Cliquez sur le bouton ci-dessous pour en choisir un nouveau&nbsp;:
+                </p>
+                <a href="{{ .ConfirmationURL }}"
+                   style="display:inline-block; background-color:#1B5E20; color:#ffffff; text-decoration:none; font-weight:600; font-size:15px; padding:12px 28px; border-radius:8px;">
+                  Choisir un nouveau mot de passe
+                </a>
+                <p style="color:#757575; font-size:13px; margin:24px 0 0;">
+                  Ce lien n'est valable qu'une heure. Si vous n'êtes pas à
+                  l'origine de cette demande, ignorez simplement ce message&nbsp;:
+                  votre mot de passe reste inchangé.
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="color:#808080; font-size:12px; margin:24px 0 0;">
+            Cet e-mail a été envoyé par ArgEnPo.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
