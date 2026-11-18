@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
+import 'screens/reset_password_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
+
+final navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +21,18 @@ Future<void> main() async {
     publishableKey: SupabaseConfig.publishableKey,
   );
 
+  // Lien de l'e-mail « mot de passe oublié » : quand l'utilisateur clique
+  // sur le lien (argenpo://reset-callback), Supabase émet l'événement
+  // passwordRecovery et on ouvre l'écran de saisie du nouveau mot de passe.
+  Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+    if (state.event == AuthChangeEvent.passwordRecovery) {
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+        (route) => false,
+      );
+    }
+  });
+
   runApp(const BonsAmisApp());
 }
 
@@ -30,6 +45,7 @@ class BonsAmisApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
       home: missingConfig
           ? const Scaffold(

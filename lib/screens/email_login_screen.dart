@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../theme/theme.dart';
@@ -16,6 +17,7 @@ class EmailLoginScreen extends StatefulWidget {
 
 class _EmailLoginScreenState extends State<EmailLoginScreen> {
   final AuthService _authService = AuthService();
+  final SupabaseClient _client = Supabase.instance.client;
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -90,9 +92,17 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     }
 
     try {
-      await _authService.resetPassword(email);
+      // Le lien de l'e-mail ouvre directement l'application
+      // (schéma déclaré dans AndroidManifest), qui affichera
+      // l'écran de saisie du nouveau mot de passe.
+      await _client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'argenpo://reset-callback',
+      );
 
-      _showMessage('Email de réinitialisation envoyé.');
+      _showMessage(
+        'Email de réinitialisation envoyé. Ouvrez le lien reçu sur ce téléphone.',
+      );
     } catch (e) {
       _showMessage(e.toString());
     }
