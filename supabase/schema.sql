@@ -177,3 +177,51 @@ $$;
 
 revoke execute on function public.find_profile_id_by_email(text) from anon, public;
 grant execute on function public.find_profile_id_by_email(text) to authenticated;
+
+-- ---------- Statistiques d'installation (anonymes) ----------
+-- Chaque installation de l'application s'identifie par un identifiant
+-- aléatoire (uuid) stocké sur le téléphone : aucune donnée personnelle.
+create table if not exists public.app_installs (
+  install_id uuid primary key,
+  first_seen timestamptz not null default now(),
+  last_seen timestamptz not null default now(),
+  app_version text,
+  platform text
+);
+
+-- Ping de démarrage : à chaque lancement, l'app met à jour last_seen.
+create or replace function public.ping_app_install(
+  ping_install_id uuid,
+  ping_app_version text,
+  ping_platform text
+)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.app_installs (install_id, app_version, platform)
+  values (ping_install_id, ping_app_version, ping_platform)
+  on conflict (install_id) do update
+    set last_seen = now(),
+        app_version = excluded.app_version,
+        platform = excluded.platform;
+$$;
+
+-- Agrégats publics uniquement (exécutée par la page Jumeaweb).
+create or replace function public.app_usage_stats()
+returns table (total_installs bigint, active_30d bigint, active_7d bigint)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select
+    count(*) as total_installs,
+    count(*) filter (where last_seen > now() - interval '30 days') as active_30d,
+    count(*) filter (where last_seen > now() - interval '7 days') as active_7d
+  from public.app_installs;
+$$;
+
+grant execute on function public.ping_app_install(uuid, text, text) to anon, authenticated;
+grant execute on function public.app_usage_stats() to anon, authenticated;

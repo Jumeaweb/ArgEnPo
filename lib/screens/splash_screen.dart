@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/install_service.dart';
 import '../theme/theme.dart';
 
 import 'home_screen.dart';
@@ -26,6 +27,10 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+
+    // Compteur d'installations, sans identité ni contenu : lancé sans
+    // attendre, il n'a aucune influence sur l'affichage.
+    InstallService().sendPing();
 
     // Les trois mots apparaissent l'un après l'autre en fondu.
     _wordFades = List.generate(_words.length, (i) {
