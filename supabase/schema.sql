@@ -90,6 +90,7 @@ $$;
 -- ---------- profiles ----------
 alter table public.profiles enable row level security;
 
+drop policy if exists "Lire les profils des groupes communs" on public.profiles;
 create policy "Lire les profils des groupes communs"
   on public.profiles for select
   using (
@@ -101,10 +102,12 @@ create policy "Lire les profils des groupes communs"
     )
   );
 
+drop policy if exists "Créer son propre profil" on public.profiles;
 create policy "Créer son propre profil"
   on public.profiles for insert
   with check (auth.uid() = id);
 
+drop policy if exists "Mettre à jour son propre profil" on public.profiles;
 create policy "Mettre à jour son propre profil"
   on public.profiles for update
   using (auth.uid() = id);
@@ -112,18 +115,22 @@ create policy "Mettre à jour son propre profil"
 -- ---------- groups ----------
 alter table public.groups enable row level security;
 
+drop policy if exists "Voir ses groupes" on public.groups;
 create policy "Voir ses groupes"
   on public.groups for select
   using (auth.uid() = any (members));
 
+drop policy if exists "Créer un groupe" on public.groups;
 create policy "Créer un groupe"
   on public.groups for insert
   with check (created_by = auth.uid());
 
+drop policy if exists "Modifier ses groupes" on public.groups;
 create policy "Modifier ses groupes"
   on public.groups for update
   using (auth.uid() = any (members));
 
+drop policy if exists "Supprimer son groupe" on public.groups;
 create policy "Supprimer son groupe"
   on public.groups for delete
   using (auth.uid() = created_by);
@@ -131,18 +138,22 @@ create policy "Supprimer son groupe"
 -- ---------- expenses ----------
 alter table public.expenses enable row level security;
 
+drop policy if exists "Voir les dépenses de ses groupes" on public.expenses;
 create policy "Voir les dépenses de ses groupes"
   on public.expenses for select
   using (public.is_group_member(group_id));
 
+drop policy if exists "Ajouter une dépense à ses groupes" on public.expenses;
 create policy "Ajouter une dépense à ses groupes"
   on public.expenses for insert
   with check (public.is_group_member(group_id));
 
+drop policy if exists "Modifier les dépenses de ses groupes" on public.expenses;
 create policy "Modifier les dépenses de ses groupes"
   on public.expenses for update
   using (public.is_group_member(group_id));
 
+drop policy if exists "Supprimer les dépenses de ses groupes" on public.expenses;
 create policy "Supprimer les dépenses de ses groupes"
   on public.expenses for delete
   using (public.is_group_member(group_id));
@@ -150,14 +161,17 @@ create policy "Supprimer les dépenses de ses groupes"
 -- ---------- repayments ----------
 alter table public.repayments enable row level security;
 
+drop policy if exists "Voir les remboursements de ses groupes" on public.repayments;
 create policy "Voir les remboursements de ses groupes"
   on public.repayments for select
   using (public.is_group_member(group_id));
 
+drop policy if exists "Enregistrer un remboursement dans ses groupes" on public.repayments;
 create policy "Enregistrer un remboursement dans ses groupes"
   on public.repayments for insert
   with check (public.is_group_member(group_id));
 
+drop policy if exists "Supprimer les remboursements de ses groupes" on public.repayments;
 create policy "Supprimer les remboursements de ses groupes"
   on public.repayments for delete
   using (public.is_group_member(group_id));
