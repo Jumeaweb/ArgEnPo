@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/group_model.dart';
 import '../services/expense_service.dart';
 import '../services/group_service.dart';
+import '../services/refresh_bus.dart';
 
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
@@ -23,11 +26,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
   final ExpenseService _expenseService = ExpenseService();
 
   List<GroupModel> groups = [];
+  StreamSubscription<void>? _refreshSubscription;
 
   @override
   void initState() {
     super.initState();
+    _refreshSubscription = RefreshBus.instance.stream.listen(
+      (_) => loadGroups(),
+    );
     loadGroups();
+  }
+
+  @override
+  void dispose() {
+    _refreshSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> loadGroups() async {

@@ -4,6 +4,7 @@ import '../models/navigation_item.dart';
 import '../screens/groups_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/profile_screen.dart';
+import '../services/refresh_bus.dart';
 import '../theme/theme.dart';
 
 import 'app_bottom_navigation.dart';
@@ -52,6 +53,10 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: selectedIndex,
         onTap: (index) {
+          if (index == selectedIndex) return;
+
+          RefreshBus.instance.notify();
+
           setState(() {
             selectedIndex = index;
           });

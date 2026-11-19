@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -6,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/debt_service.dart';
 import '../services/expense_service.dart';
 import '../services/group_service.dart';
+import '../services/refresh_bus.dart';
 import '../services/repayment_service.dart';
 import '../services/user_service.dart';
 
@@ -34,11 +37,21 @@ class _HomeScreenState extends State<HomeScreen> {
   double owedToMe = 0;
   double iOwe = 0;
   String displayName = '';
+  StreamSubscription<void>? _refreshSubscription;
 
   @override
   void initState() {
     super.initState();
+    _refreshSubscription = RefreshBus.instance.stream.listen(
+      (_) => loadDashboard(),
+    );
     loadDashboard();
+  }
+
+  @override
+  void dispose() {
+    _refreshSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> loadDashboard() async {
@@ -120,22 +133,20 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required Color color,
   }) {
-    return Expanded(
-      child: AppCard(
-        padding: const EdgeInsets.all(AppDimensions.padding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 12),
-            Text(
-              '${amount.toStringAsFixed(2)} €',
-              style: AppTextStyles.amount.copyWith(color: color),
-            ),
-            const SizedBox(height: 4),
-            Text(label, style: AppTextStyles.subtitle),
-          ],
-        ),
+    return AppCard(
+      padding: const EdgeInsets.all(AppDimensions.padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 12),
+          Text(
+            '${amount.toStringAsFixed(2)} €',
+            style: AppTextStyles.amount.copyWith(color: color),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: AppTextStyles.subtitle),
+        ],
       ),
     );
   }
@@ -212,20 +223,23 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             else
               Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildBalanceCard(
-                    label: 'On me doit',
-                    amount: owedToMe,
-                    icon: Icons.south_west,
-                    color: AppColors.primary,
+                  Expanded(
+                    child: _buildBalanceCard(
+                      label: 'On me doit',
+                      amount: owedToMe,
+                      icon: Icons.south_west,
+                      color: AppColors.primary,
+                    ),
                   ),
                   const SizedBox(width: AppDimensions.padding),
-                  _buildBalanceCard(
-                    label: 'Je dois',
-                    amount: iOwe,
-                    icon: Icons.north_east,
-                    color: const Color(0xFFC62828),
+                  Expanded(
+                    child: _buildBalanceCard(
+                      label: 'Je dois',
+                      amount: iOwe,
+                      icon: Icons.north_east,
+                      color: const Color(0xFFC62828),
+                    ),
                   ),
                 ],
               ),
