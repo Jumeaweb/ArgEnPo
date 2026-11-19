@@ -6,6 +6,7 @@ import '../models/repayment_model.dart';
 import '../services/debt_service.dart';
 import '../services/expense_service.dart';
 import '../services/group_service.dart';
+import '../services/invitation_service.dart';
 import '../services/repayment_service.dart';
 import '../services/user_service.dart';
 
@@ -137,12 +138,24 @@ class _GroupScreenState extends State<GroupScreen> {
     final email = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Ajouter un membre'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'email@gmail.com',
-          ),
+        title: const Text('Inviter un ami'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'La personne recevra une invitation dans son application '
+              'et devra l\'accepter pour rejoindre le groupe.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                hintText: 'email@gmail.com',
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -151,7 +164,7 @@ class _GroupScreenState extends State<GroupScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Ajouter'),
+            child: const Text('Inviter'),
           ),
         ],
       ),
@@ -159,20 +172,35 @@ class _GroupScreenState extends State<GroupScreen> {
 
     if (email == null || email.trim().isEmpty) return;
 
-    final success = await GroupService().addMemberByEmail(
-      widget.groupId,
-      email.trim(),
-    );
-
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success ? 'Membre ajouté' : 'Utilisateur introuvable',
+    try {
+      await InvitationService().createInvitation(
+        groupId: widget.groupId,
+        groupName: widget.groupName,
+        email: email.trim(),
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Invitation envoyée à ${email.trim()}',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      final message = e.toString().contains('déjà en attente')
+          ? 'Une invitation est déjà en attente pour cet email'
+          : 'Erreur : $e';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   @override

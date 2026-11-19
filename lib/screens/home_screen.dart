@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/debt_service.dart';
 import '../services/expense_service.dart';
 import '../services/group_service.dart';
+import '../services/invitation_service.dart';
 import '../services/refresh_bus.dart';
 import '../services/repayment_service.dart';
 import '../services/user_service.dart';
@@ -17,6 +18,7 @@ import '../widgets/widgets.dart';
 
 import 'create_group_screen.dart';
 import 'group_screen.dart';
+import 'invitations_screen.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -32,11 +34,13 @@ class _HomeScreenState extends State<HomeScreen> {
   final RepaymentService _repaymentService = RepaymentService();
   final DebtService _debtService = DebtService();
   final UserService _userService = UserService();
+  final InvitationService _invitationService = InvitationService();
 
   List<GroupModel> groups = [];
   double owedToMe = 0;
   double iOwe = 0;
   String displayName = '';
+  int pendingInvitations = 0;
   StreamSubscription<void>? _refreshSubscription;
 
   @override
@@ -90,6 +94,21 @@ class _HomeScreenState extends State<HomeScreen> {
       owedToMe = totalDueToMe;
       iOwe = totalOwedByMe;
     });
+
+    // Les invitations sont chargées après l'essentiel : si elles
+    // échouent, le tableau de bord doit rester utilisable.
+    try {
+      final invitations =
+          await _invitationService.getPendingInvitations();
+
+      if (!mounted) return;
+
+      setState(() {
+        pendingInvitations = invitations.length;
+      });
+    } catch (_) {
+      // Ignoré volontairement.
+    }
   }
 
   Future<void> _openCreateGroupScreen() async {
@@ -185,6 +204,53 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(
+                  Icons.mail_outline,
+                  color: AppColors.textLight,
+                ),
+                if (pendingInvitations > 0)
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.danger,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        pendingInvitations > 9 ? '9+' : '$pendingInvitations',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            tooltip: 'Invitations reçues',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const InvitationsScreen(),
+                ),
+              );
+
+              loadDashboard();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.textLight),
             onPressed: () async {
