@@ -9,6 +9,7 @@ import '../services/debt_service.dart';
 import '../services/expense_service.dart';
 import '../services/group_service.dart';
 import '../services/invitation_service.dart';
+import '../services/notification_service.dart';
 import '../services/refresh_bus.dart';
 import '../services/repayment_service.dart';
 import '../services/user_service.dart';
@@ -20,6 +21,7 @@ import 'create_group_screen.dart';
 import 'group_screen.dart';
 import 'invitations_screen.dart';
 import 'login_screen.dart';
+import 'notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,12 +37,14 @@ class _HomeScreenState extends State<HomeScreen> {
   final DebtService _debtService = DebtService();
   final UserService _userService = UserService();
   final InvitationService _invitationService = InvitationService();
+  final NotificationService _notificationService = NotificationService();
 
   List<GroupModel> groups = [];
   double owedToMe = 0;
   double iOwe = 0;
   String displayName = '';
   int pendingInvitations = 0;
+  int unreadNotifications = 0;
   StreamSubscription<void>? _refreshSubscription;
 
   @override
@@ -95,8 +99,9 @@ class _HomeScreenState extends State<HomeScreen> {
       iOwe = totalOwedByMe;
     });
 
-    // Les invitations sont chargées après l'essentiel : si elles
-    // échouent, le tableau de bord doit rester utilisable.
+    // Les invitations et notifications sont chargées après
+    // l'essentiel : si elles échouent, le tableau de bord doit
+    // rester utilisable.
     try {
       final invitations =
           await _invitationService.getPendingInvitations();
@@ -105,6 +110,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         pendingInvitations = invitations.length;
+      });
+    } catch (_) {
+      // Ignoré volontairement.
+    }
+
+    try {
+      final unread = await _notificationService.getUnreadCount();
+
+      if (!mounted) return;
+
+      setState(() {
+        unreadNotifications = unread;
       });
     } catch (_) {
       // Ignoré volontairement.
@@ -170,6 +187,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildBadgeIcon({
+    required IconData icon,
+    required int count,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            icon,
+            color: AppColors.textLight,
+          ),
+          if (count > 0)
+            Positioned(
+              right: -6,
+              top: -6,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: AppColors.danger,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                child: Text(
+                  count > 9 ? '9+' : '$count',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textLight,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      tooltip: tooltip,
+      onPressed: onPressed,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -204,41 +267,24 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(
-                  Icons.mail_outline,
-                  color: AppColors.textLight,
+          _buildBadgeIcon(
+            icon: Icons.notifications_none,
+            count: unreadNotifications,
+            tooltip: 'Notifications',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationsScreen(),
                 ),
-                if (pendingInvitations > 0)
-                  Positioned(
-                    right: -6,
-                    top: -6,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.danger,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Text(
-                        pendingInvitations > 9 ? '9+' : '$pendingInvitations',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+              );
+
+              loadDashboard();
+            },
+          ),
+          _buildBadgeIcon(
+            icon: Icons.mail_outline,
+            count: pendingInvitations,
             tooltip: 'Invitations reçues',
             onPressed: () async {
               await Navigator.push(
