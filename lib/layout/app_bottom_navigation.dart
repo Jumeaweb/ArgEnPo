@@ -31,14 +31,6 @@ class AppBottomNavigation extends StatelessWidget {
           label: 'Groupes',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.receipt_long),
-          label: 'Dépenses',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart),
-          label: 'Stats',
-        ),
-        BottomNavigationBarItem(
           icon: Icon(Icons.person),
           label: 'Profil',
         ),

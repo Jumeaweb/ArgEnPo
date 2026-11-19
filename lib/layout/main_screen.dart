@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/navigation_item.dart';
-import '../screens/expenses_screen.dart';
 import '../screens/groups_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/profile_screen.dart';
-import '../screens/statistics_screen.dart';
 import '../theme/theme.dart';
 
 import 'app_bottom_navigation.dart';
@@ -32,18 +30,6 @@ class _MainScreenState extends State<MainScreen> {
       icon: Icons.group,
       title: 'Groupes',
       subtitle: 'Mes groupes de partage',
-    ),
-    NavigationItem(
-      page: ExpensesScreen(),
-      icon: Icons.receipt_long,
-      title: 'Dépenses',
-      subtitle: 'Toutes mes dépenses',
-    ),
-    NavigationItem(
-      page: StatisticsScreen(),
-      icon: Icons.bar_chart,
-      title: 'Statistiques',
-      subtitle: 'Analyse des dépenses',
     ),
     NavigationItem(
       page: ProfileScreen(),
