@@ -3,7 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class UserService {
   final SupabaseClient _db = Supabase.instance.client;
 
-  final Map<String, String> _cache = {};
+  /// Cache partagé entre toutes les instances : le nom peut être
+  /// modifié depuis l'écran Profil pendant que d'autres écrans
+  /// utilisent le leur.
+  static final Map<String, String> _cache = {};
 
   Future<void> createUser({
     required String uid,
