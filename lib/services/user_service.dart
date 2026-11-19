@@ -32,4 +32,18 @@ class UserService {
 
     return name;
   }
+
+  Future<void> updateDisplayName(String uid, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Le nom ne peut pas être vide');
+    }
+
+    await _db
+        .from('profiles')
+        .update({'display_name': trimmed})
+        .eq('id', uid);
+
+    _cache[uid] = trimmed;
+  }
 }
