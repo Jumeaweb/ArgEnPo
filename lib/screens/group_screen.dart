@@ -195,7 +195,9 @@ class _GroupScreenState extends State<GroupScreen> {
 
       final message = e.toString().contains('déjà en attente')
           ? 'Une invitation est déjà en attente pour cet email'
-          : 'Erreur : $e';
+          : e.toString().contains('déjà partie du groupe')
+              ? 'Cette personne fait déjà partie du groupe'
+              : 'Erreur : $e';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),

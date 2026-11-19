@@ -44,6 +44,22 @@ class InvitationService {
       params: {'search_email': normalizedEmail},
     );
 
+    // Si le compte existe et est déjà membre du groupe, inutile
+    // d'inviter.
+    if (profileId is String && profileId.isNotEmpty) {
+      final group = await _db
+          .from('groups')
+          .select('members')
+          .eq('id', groupId)
+          .single();
+
+      final members = List<String>.from(group['members'] as List);
+
+      if (members.contains(profileId)) {
+        throw Exception('Cette personne fait déjà partie du groupe');
+      }
+    }
+
     await _db.from('invitations').insert({
       'group_id': groupId,
       'email': normalizedEmail,
