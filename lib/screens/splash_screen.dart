@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/install_service.dart';
 import '../theme/theme.dart';
 
-import 'home_screen.dart';
+import '../layout/main_screen.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -69,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) =>
-            session != null ? const HomeScreen() : const LoginScreen(),
+            session != null ? const MainScreen() : const LoginScreen(),
       ),
     );
   }

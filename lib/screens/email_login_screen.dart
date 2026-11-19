@@ -5,7 +5,7 @@ import '../services/auth_service.dart';
 import '../theme/theme.dart';
 import '../widgets/widgets.dart';
 
-import 'home_screen.dart';
+import '../layout/main_screen.dart';
 
 class EmailLoginScreen extends StatefulWidget {
   const EmailLoginScreen({super.key});
@@ -68,7 +68,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
         // Connexion réussie : on ouvre l'accueil en effaçant toute
         // la pile de navigation (sinon on resterait sur la connexion).
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const MainScreen()),
           (route) => false,
         );
       } else {
