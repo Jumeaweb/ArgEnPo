@@ -28,7 +28,7 @@ begin
     select 1 from vault.secrets where name = 'resend_api_key'
   ) then
     if exists (
-      select 1 from vault.secrets
+      select 1 from vault.decrypted_secrets
       where name = 'resend_api_key'
         and decrypted_secret like 're_REMPLACER%'
     ) then
