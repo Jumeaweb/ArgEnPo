@@ -84,7 +84,11 @@ begin
   -- Numéro du compte (après lui-même).
   select count(*) + 1 into v_count from auth.users;
 
-  v_when := to_char(new.created_at at time zone 'Europe/Paris',
+  -- ⚠️ created_at peut être null (insertion manuelle : GoTrue le renseigne
+  --    lui-même sur une vraie inscription) — et une seule valeur null dans
+  --    l'assemblage du html rendrait tout le champ null (erreur 422 Resend).
+  --    D'où le coalesce ci-dessous.
+  v_when := to_char(coalesce(new.created_at, now()) at time zone 'Europe/Paris',
                     'DD/MM/YYYY à HH24:MI');
 
   v_payload := jsonb_build_object(
@@ -132,8 +136,8 @@ execute function public.notify_new_user_signup();
 
 -- 5. (Facultatif) Test immédiat sans créer un vrai compte :
 --    créer puis supprimer un utilisateur fictif déclenche l'e-mail.
---    Décommenter puis exécuter (« id » est obligatoire, sans valeur par
---    défaut dans auth.users) :
--- insert into auth.users (id, email, email_confirmed_at, encrypted_password)
--- values (gen_random_uuid(), 'test-notif@exemple.fr', now(), '');
+--    Décommenter puis exécuter (« id » et « created_at » sont obligatoires,
+--    sans valeur par défaut dans auth.users) :
+-- insert into auth.users (id, email, email_confirmed_at, encrypted_password, created_at)
+-- values (gen_random_uuid(), 'test-notif@exemple.fr', now(), '', now());
 -- delete from auth.users where email = 'test-notif@exemple.fr';
