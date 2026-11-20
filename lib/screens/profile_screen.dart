@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../constants/constants.dart';
 
 import '../services/auth_service.dart';
 import '../services/refresh_bus.dart';
@@ -153,6 +156,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _donate() async {
+    try {
+      final opened = await launchUrl(
+        Uri.parse(AppConstants.donationUrl),
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible d\'ouvrir le navigateur.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
+  }
+
   Future<void> _signOut() async {
     await AuthService().signOut();
 
@@ -232,6 +258,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: _resetPassword,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.padding),
+          // Soutien : l'app est gratuite Stripe gère le paiement, l'app
+          // n'y touche jamais (simple lien ouvert dans le navigateur).
+          AppCard(
+            padding: const EdgeInsets.all(AppDimensions.padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.volunteer_activism,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Soutenir ArgEnPo',
+                        style: AppTextStyles.title,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'L\'application est gratuite et le restera. '
+                  'Si elle vous est utile, votre contribution aide à '
+                  'financer son développement et son hébergement.',
+                  style: AppTextStyles.subtitle,
+                ),
+                const SizedBox(height: 12),
+                AppButton(
+                  text: 'Faire un don',
+                  icon: Icons.favorite,
+                  onPressed: _donate,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppDimensions.padding),
