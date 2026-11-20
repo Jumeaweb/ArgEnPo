@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../services/refresh_bus.dart';
 import '../services/user_service.dart';
 import '../theme/theme.dart';
+import '../widgets/update_card.dart';
 import '../widgets/widgets.dart';
 
 import 'login_screen.dart';
@@ -23,14 +23,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String displayName = '';
   String email = '';
-  String appVersion = '';
   bool saving = false;
 
   @override
   void initState() {
     super.initState();
     loadProfile();
-    loadVersion();
   }
 
   Future<void> loadProfile() async {
@@ -44,16 +42,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       displayName = name;
       email = user.email ?? '';
-    });
-  }
-
-  Future<void> loadVersion() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-
-    if (!mounted) return;
-
-    setState(() {
-      appVersion = packageInfo.version;
     });
   }
 
@@ -251,13 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             text: 'Déconnexion',
             onPressed: _signOut,
           ),
-          const SizedBox(height: AppDimensions.padding),
-          Center(
-            child: Text(
-              appVersion.isEmpty ? 'ArgEnPo' : 'ArgEnPo • Version $appVersion',
-              style: AppTextStyles.subtitle,
-            ),
-          ),
+          const UpdateCard(),
         ],
       ),
     );

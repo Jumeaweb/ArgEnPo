@@ -15,6 +15,7 @@ import '../services/repayment_service.dart';
 import '../services/user_service.dart';
 
 import '../theme/theme.dart';
+import '../widgets/update_card.dart';
 import '../widgets/widgets.dart';
 
 import 'create_group_screen.dart';
@@ -316,6 +317,9 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppDimensions.padding),
           children: [
+            // Mise à jour : la carte ne s'affiche que si une nouvelle
+            // version est disponible sur GitHub.
+            const UpdateCard(silentWhenUpToDate: true),
             Text(
               displayName.isEmpty
                   ? 'Bonjour !'
