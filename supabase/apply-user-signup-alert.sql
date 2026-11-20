@@ -14,11 +14,33 @@ create extension if not exists pg_net;
 create extension if not exists supabase_vault;
 
 -- 2. Clé Resend dans le Vault.
--- ⚠️ REMPLACE 're_REMPLACER_PAR_TA_CLE' par ta clé Resend AVANT
---    d'exécuter (dashboard Resend → API Keys, la même que sur Vercel).
---    Si le secret existe déjà, cette commande crée juste un doublon :
---    celui pris en compte est le plus récent (ordre décroissant ci-dessous).
-select vault.create_secret('re_REMPLACER_PAR_TA_CLE', 'resend_api_key');
+-- ⚠️ REMPLACE 're_REMPLACER_PAR_TA_CLE' par ta clé Resend uniquement
+--    DANS LE SQL EDITOR DE SUPABASE (pas dans ce fichier, qui part sur
+--    GitHub — la clé doit rester secrète).
+--
+--    Le script est rejouable : si le secret existe déjà avec une vraie
+--    clé, il est laissé tel quel ; s'il est encore au placeholder, il
+--    est remplacé. (Pour changer de clé plus tard : delete from
+--    vault.secrets where name = 'resend_api_key'; puis create_secret.)
+do $$
+begin
+  if exists (
+    select 1 from vault.secrets where name = 'resend_api_key'
+  ) then
+    if exists (
+      select 1 from vault.secrets
+      where name = 'resend_api_key'
+        and decrypted_secret like 're_REMPLACER%'
+    ) then
+      delete from vault.secrets where name = 'resend_api_key';
+      perform vault.create_secret('re_REMPLACER_PAR_TA_CLE', 'resend_api_key');
+    else
+      raise notice 'Secret resend_api_key déjà présent avec la vraie clé : inchangé.';
+    end if;
+  else
+    perform vault.create_secret('re_REMPLACER_PAR_TA_CLE', 'resend_api_key');
+  end if;
+end $$;
 
 -- 3. Fonction appelée à chaque inscription
 create or replace function public.notify_new_user_signup()
