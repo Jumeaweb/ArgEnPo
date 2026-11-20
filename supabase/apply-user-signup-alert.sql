@@ -132,7 +132,8 @@ execute function public.notify_new_user_signup();
 
 -- 5. (Facultatif) Test immédiat sans créer un vrai compte :
 --    créer puis supprimer un utilisateur fictif déclenche l'e-mail.
---    Décommenter les 2 lignes suivantes pour tester, puis réexécuter :
--- insert into auth.users (email, email_confirmed_at, encrypted_password)
--- values ('test-notif@exemple.fr', now(), '');
+--    Décommenter puis exécuter (« id » est obligatoire, sans valeur par
+--    défaut dans auth.users) :
+-- insert into auth.users (id, email, email_confirmed_at, encrypted_password)
+-- values (gen_random_uuid(), 'test-notif@exemple.fr', now(), '');
 -- delete from auth.users where email = 'test-notif@exemple.fr';
